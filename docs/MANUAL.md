@@ -343,5 +343,8 @@ is listed after the export.
 ## Privacy
 
 Everything runs in the browser. Songs, samples and the library stay on your
-device; nothing is uploaded. The site has no accounts and no cookies. If the
-deployment sets an analytics snippet, it counts page views only.
+device: they are kept in this browser's storage only, and song files are never
+uploaded. The site has no accounts. The public site may count visits and which
+features are used (for example play, export formats, import, theme and
+language), and record anonymous usage sessions, with a privacy-friendly
+analytics service. The installed app also works offline without it.
