@@ -337,7 +337,9 @@ driver in it. What **Import…** does with an SPC:
   and every note it plays is written down with its sample, pitch, volume,
   panning and envelope, every key-off as `===`, and volume changes in between
   in the volume column. The row length is measured from the notes' timing and
-  set as speed and BPM; the song starts on its first note. Only the sound
+  set as speed and BPM: a row is about a beat (up to 200 ms), and notes
+  between beats (grace notes, triplets) keep their timing with a note delay
+  (`7xx`). The song starts on its first note. Only the sound
   driver runs (the sound chip only when the driver asks it for something), so
   a two-minute song takes about a second; a message shows the progress.
 - One instrument per sample (and one for the noise generator), with the

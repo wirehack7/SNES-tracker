@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { DIR } from '../../src/dsp/dsp';
 import { buildSpc, spcFile } from '../../src/export/spc';
 import { SPC_SIZE } from '../../src/export/spcimport';
-import { SpcCapture, SpcNote, captureSpc, fitGrid, importSpc, rowIndexer, rowLength, songFromCapture, tempoFor, volumePan } from '../../src/spc/transcribe';
+import { SpcCapture, SpcNote, beatRows, captureSpc, fitGrid, importSpc, rowIndexer, rowLength, songFromCapture, tempoFor, volumePan } from '../../src/spc/transcribe';
 import { FX } from '../../src/tracker/player';
 import { noiseClockFor } from '../../src/tracker/notes';
 import { DIR_PAGE } from '../../src/tracker/aram';
@@ -193,6 +193,42 @@ describe('notes from a capture', () => {
     expect(noiseClockFor(rows[1][1].note)).toBe(clock);
     const gain = song.instruments[rows[2][2].instrument];
     expect([gain.envelope, gain.gain]).toEqual(['gain', 0x50]);
+  });
+
+  it('groups a fine grid into beat rows and delays the notes between beats', () => {
+    // A grid of 800 samples: voice 0 on every 6th step (a beat), voice 1 two steps after some beats, a key-off between.
+    const step = 800;
+    const notes: SpcNote[] = [];
+    for (let b = 0; b < 40; b++) {
+      notes.push(note(b * 6 * step, 0));
+      if (b % 4 === 1) notes.push(note((b * 6 + 2) * step, 1, { volL: 0x40, volR: 0 }));
+    }
+    const offs = [{ time: (6 * 6 + 3) * step, voice: 0 }];
+    const { song, notes: placed } = songFromCapture(capture(notes, { offs, length: 41 * 6 * step }), ram, step);
+    expect(placed).toBe(notes.length);
+    expect(song.speed % 6).toBe(0);
+    const ticks = song.speed / 6;
+    expect(song.speed * tickUnits(song.bpm) * 4).toBeCloseTo(6 * step, -2);
+    const rows = song.patterns[0].rows;
+    expect(rows[0][0].note).toBeGreaterThanOrEqual(0);
+    expect(rows[1][0].note).toBeGreaterThanOrEqual(0);
+    expect(rows[0][0].effect).toBe(EMPTY);
+    // Between beats: the note delay, with its panning on the row before.
+    expect([rows[1][1].effect, rows[1][1].param]).toEqual([FX.NOTE_DELAY, 2 * ticks]);
+    expect([rows[0][1].effect, rows[0][1].param]).toEqual([FX.PANNING, 0]);
+    // The key-off after the note in the same row cuts it.
+    expect([rows[6][0].effect, rows[6][0].param]).toEqual([FX.NOTE_CUT, 3 * ticks]);
+    expect(beatRows([{ row: 0, voice: 0 }, { row: 1, voice: 0 }, { row: 2, voice: 0 }], 8)).toEqual({ k: 1, phase: 0 });
+  });
+
+  it('puts a key-off between beats on its own row with a delay', () => {
+    const step = 800;
+    const notes = Array.from({ length: 20 }, (_, b) => note(b * 6 * step, b % 2));
+    const offs = [{ time: (6 + 4) * step, voice: 0 }];
+    const { song } = songFromCapture(capture(notes, { offs }), ram, step);
+    const ticks = song.speed / 6;
+    const cell = song.patterns[0].rows[1][0];
+    expect([cell.note, cell.effect, cell.param]).toEqual([NOTE_OFF, FX.NOTE_DELAY, 4 * ticks]);
   });
 
   it('transposes instruments whose notes leave the note range and skips what cannot play', () => {

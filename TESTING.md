@@ -16,7 +16,7 @@ npm run smoke -- smoke-screenshots --chromium   # browser smoke test of dist/ (a
 
 ## Unit tests
 
-478 tests in 20 files under `tests/`.
+480 tests in 20 files under `tests/`.
 
 | File | Tests | What it proves |
 | --- | ---: | --- |

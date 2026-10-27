@@ -50,7 +50,7 @@ compare its DSP writes and their timing with the capture. After the SPC data the
 files `src/spc/transcribe.ts` makes patterns: it runs the file's own driver on the emulated SPC700 (without the
 DSP unless the driver reads its envelope or output, and skipping the cycles it spends waiting for a timer), records every
 key-on (with the voice's sample, pitch, volume and envelope), key-off and volume change, fits a row grid to the
-note timing (per 20-second stretch, counted from note to note so the driver's drift never adds up) and writes the
+note timing, groups grid steps into rows of about a beat (off-beat notes get a note delay) (per 20-second stretch, counted from note to note so the driver's drift never adds up) and writes the
 notes with the BRR samples they use.
 
 `src/spc/cpu.ts` is the SPC700 and `src/spc/apu.ts` the audio unit around it (I/O registers, timers 0-2, IPL
