@@ -93,59 +93,72 @@ button {
   box-shadow: 0 0 6px #ff3b3b;
 }
 
-/* The transport sits in a recessed tray like the button well of the Super Famicom pad. */
+/* 16-bit look: the transport is a dark console panel with blocky, bevelled keys and pixel-art glyphs.
+   Corners are cut by one "pixel" (2px) instead of rounded; all shadows are hard. */
 .transport {
+  --px: 2px;
   display: flex;
   align-items: center;
-  gap: 7px;
-  padding: 3px 5px;
-  border-radius: 999px;
-  background: linear-gradient(color-mix(in srgb, var(--surface-2) 82%, #000), var(--surface-2));
+  gap: 6px;
+  padding: 4px;
+  background: #3b3748;
   box-shadow:
-    inset 0 2px 3px rgb(0 0 0 / 0.3),
-    inset 0 -1px 0 rgb(255 255 255 / 0.25),
-    0 1px 0 rgb(255 255 255 / 0.45);
+    inset 0 0 0 var(--px) #1d1a26,
+    inset var(--px) var(--px) 0 var(--px) #25222f,
+    inset calc(-1 * var(--px)) calc(-1 * var(--px)) 0 var(--px) #57526a;
+  clip-path: polygon(
+    var(--px) 0,
+    calc(100% - var(--px)) 0,
+    100% var(--px),
+    100% calc(100% - var(--px)),
+    calc(100% - var(--px)) 100%,
+    var(--px) 100%,
+    0 calc(100% - var(--px)),
+    0 var(--px)
+  );
 }
 
-/* Matte, slightly domed face buttons with an engraved glyph; they sink in while held or latched. */
 .pad-btn {
-  --face: #4a4655;
-  --glyph: rgb(255 255 255 / 0.9);
+  --px: 2px;
+  --face: #8e8a9c;
+  --glyph: #fff;
+  position: relative;
   display: grid;
   place-items: center;
-  width: 34px;
+  width: 42px;
   height: 34px;
   padding: 0;
   border: 0;
-  border-radius: 50%;
+  border-radius: 0;
   color: var(--glyph);
-  background:
-    radial-gradient(circle at 50% 22%, rgb(255 255 255 / 0.3), transparent 58%),
-    linear-gradient(color-mix(in srgb, var(--face) 90%, #fff), color-mix(in srgb, var(--face) 86%, #000));
+  background: var(--face);
+  /* Outline, then light top-left and dark bottom-right bevel. */
   box-shadow:
-    inset 0 1px 0 rgb(255 255 255 / 0.35),
-    inset 0 -2px 3px rgb(0 0 0 / 0.25),
-    0 0 0 1px color-mix(in srgb, var(--face) 55%, #000),
-    0 2px 0 1px color-mix(in srgb, var(--face) 45%, #000),
-    0 4px 5px rgb(0 0 0 / 0.3);
-  transition:
-    transform 70ms ease-out,
-    box-shadow 70ms ease-out,
-    filter 120ms;
+    inset 0 0 0 var(--px) #15121c,
+    inset calc(2 * var(--px)) calc(2 * var(--px)) 0 0 color-mix(in srgb, var(--face) 55%, #fff),
+    inset calc(-2 * var(--px)) calc(-2 * var(--px)) 0 0 color-mix(in srgb, var(--face) 60%, #000);
+  clip-path: polygon(
+    var(--px) 0,
+    calc(100% - var(--px)) 0,
+    100% var(--px),
+    100% calc(100% - var(--px)),
+    calc(100% - var(--px)) 100%,
+    var(--px) 100%,
+    0 calc(100% - var(--px)),
+    0 var(--px)
+  );
   touch-action: manipulation;
 }
 
 .pad-btn svg {
-  width: 18px;
-  height: 18px;
+  width: 24px;
+  height: 24px;
   fill: currentColor;
-  filter: drop-shadow(0 -1px 0 rgb(0 0 0 / 0.35)) drop-shadow(0 1px 0 rgb(255 255 255 / 0.2));
-  transition:
-    color 120ms,
-    filter 120ms;
+  /* A hard one-pixel drop shadow, as on 16-bit menu text. */
+  filter: drop-shadow(var(--px) var(--px) 0 color-mix(in srgb, var(--face) 45%, #000));
 }
 
-/* Play and loop in the colours of the pad's Y and X buttons, stop in the grey rubber of Select/Start. */
+/* Play and loop in the colours of the pad's Y and X buttons, stop in Select/Start grey. */
 .pad-btn.play {
   --face: var(--btn-y);
 }
@@ -154,9 +167,13 @@ button {
   --face: var(--btn-x);
 }
 
-/* Record off: grey rubber with a dark red lamp. On: the red A button with the lamp lit. */
+.pad-btn.stop {
+  --face: #6c6879;
+}
+
+/* Record off: grey key with a dark red lamp. On: the red A button. */
 .pad-btn.rec {
-  --glyph: #7d2a2a;
+  --glyph: #8a1f1f;
 }
 
 .pad-btn.rec[aria-pressed='true'] {
@@ -166,33 +183,35 @@ button {
 
 @media (hover: hover) {
   .pad-btn:hover {
-    filter: brightness(1.07);
+    filter: brightness(1.1);
   }
 }
 
+/* Held or latched: the bevel flips and the glyph moves one pixel down-right. */
 .pad-btn:active,
 .pad-btn[aria-pressed='true'] {
-  transform: translateY(2px);
   box-shadow:
-    inset 0 1px 0 rgb(255 255 255 / 0.25),
-    inset 0 -1px 2px rgb(0 0 0 / 0.25),
-    0 0 0 1px color-mix(in srgb, var(--face) 55%, #000),
-    0 0 0 1px color-mix(in srgb, var(--face) 45%, #000),
-    0 1px 2px rgb(0 0 0 / 0.3);
+    inset 0 0 0 var(--px) #15121c,
+    inset calc(2 * var(--px)) calc(2 * var(--px)) 0 0 color-mix(in srgb, var(--face) 60%, #000),
+    inset calc(-1 * var(--px)) calc(-1 * var(--px)) 0 var(--px) color-mix(in srgb, var(--face) 75%, #fff);
 }
 
-.pad-btn[aria-pressed='true'] {
-  box-shadow:
-    inset 0 1px 0 rgb(255 255 255 / 0.25),
-    inset 0 -1px 2px rgb(0 0 0 / 0.25),
-    0 0 0 1px color-mix(in srgb, var(--face) 55%, #000),
-    0 1px 2px rgb(0 0 0 / 0.3),
-    0 0 10px 1px color-mix(in srgb, var(--face) 65%, transparent);
-}
-
+.pad-btn:active svg,
 .pad-btn[aria-pressed='true'] svg {
-  color: #fff;
-  filter: drop-shadow(0 0 2px rgb(255 255 255 / 0.9)) drop-shadow(0 0 5px color-mix(in srgb, var(--face) 40%, #fff));
+  transform: translate(var(--px), var(--px));
+  filter: none;
+}
+
+/* Latched keys light a square lamp in the corner. */
+.pad-btn[aria-pressed='true']::after {
+  content: '';
+  position: absolute;
+  top: calc(2 * var(--px));
+  right: calc(2 * var(--px) + 1px);
+  width: 4px;
+  height: 4px;
+  background: #fff6a8;
+  box-shadow: 0 0 0 1px #15121c;
 }
 
 #app[data-rec='off'] .cell .cursor {
@@ -1163,13 +1182,14 @@ a.btn {
   }
 
   .pad-btn {
-    width: 30px;
-    height: 30px;
+    --px: 1.5px;
+    width: 32px;
+    height: 28px;
   }
 
   .pad-btn svg {
-    width: 16px;
-    height: 16px;
+    width: 18px;
+    height: 18px;
   }
 
   .piano {

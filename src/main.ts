@@ -226,18 +226,19 @@ const app = document.getElementById('app')!;
 app.dataset.view = 'pattern';
 setLocale(loadStored(LANG_KEY) ?? matchLocale(navigator.languages ?? [navigator.language]));
 document.documentElement.lang = getLocale();
-/** A 24x24 transport glyph; drawn as SVG so it looks the same on every platform, unlike ▶ ■ ● ⟳. */
-const icon = (shape: string) => `<svg viewBox="0 0 24 24" aria-hidden="true">${shape}</svg>`;
+/** A transport glyph as 12x12 pixel art; SVG so it looks the same on every platform, unlike ▶ ■ ● ⟳. */
+const icon = (path: string) =>
+  `<svg viewBox="0 0 12 12" shape-rendering="crispEdges" aria-hidden="true"><path d="${path}"/></svg>`;
 const stepper = (id: string, label: MessageKey, title: MessageKey) =>
   `<span class="field" data-i18n-title="${title}"><span data-i18n="${label}"></span> <span class="stepper"><button type="button" id="${id}-down" data-step-name="${title}" data-step-dir="down">‹</button><output id="${id}"></output><button type="button" id="${id}-up" data-step-name="${title}" data-step-dir="up">›</button></span></span>`;
 app.innerHTML = `
   <header class="toolbar">
     <div class="brand"><span class="led" id="play-led" data-i18n-title="app.playing"></span><h1>SNES TRACKER<span>S-DSP · SPC700</span></h1></div>
     <div class="transport">
-      <button type="button" class="pad-btn play" id="play-song" data-i18n-title="transport.playSong" data-i18n-aria-label="transport.playSongLabel">${icon('<path d="M8 5.5v13l10.5-6.5z"/>')}</button>
-      <button type="button" class="pad-btn loop" id="play-pattern" data-i18n-title="transport.loopPattern" data-i18n-aria-label="transport.loopPatternLabel">${icon('<path d="M17.65 6.35A8 8 0 1 0 19.73 14h-2.08A6 6 0 1 1 12 6c1.66 0 3.14.69 4.22 1.78L13 11h7V4z"/>')}</button>
-      <button type="button" class="pad-btn stop" id="stop" data-i18n-title="transport.stop" data-i18n-aria-label="transport.stop">${icon('<rect x="6.5" y="6.5" width="11" height="11" rx="1.5"/>')}</button>
-      <button type="button" class="pad-btn rec" id="rec" data-i18n-title="transport.rec" data-i18n-aria-label="transport.recLabel">${icon('<circle cx="12" cy="12" r="5.5"/>')}</button>
+      <button type="button" class="pad-btn play" id="play-song" data-i18n-title="transport.playSong" data-i18n-aria-label="transport.playSongLabel">${icon('M3 1h2v1h1v1h1v1h1v1h1v1h1v2h-1v1h-1v1h-1v1h-1v1h-1v1h-2z')}</button>
+      <button type="button" class="pad-btn loop" id="play-pattern" data-i18n-title="transport.loopPattern" data-i18n-aria-label="transport.loopPatternLabel">${icon('M6 2h2v2H6zM8 3h1v1H8zM8 4h2v4H8zM8 8h1v1H8zM4 8h4v2H4zM3 8h1v1H3zM2 5h2v3H2zM1 4h4v1H1zM2 3h2v1H2z')}</button>
+      <button type="button" class="pad-btn stop" id="stop" data-i18n-title="transport.stop" data-i18n-aria-label="transport.stop">${icon('M2 2h8v8H2z')}</button>
+      <button type="button" class="pad-btn rec" id="rec" data-i18n-title="transport.rec" data-i18n-aria-label="transport.recLabel">${icon('M4 2h4v1h1v1h1v4h-1v1h-1v1H4v-1H3v-1H2V4h1V3h1z')}</button>
     </div>
     <div class="fields">
       ${stepper('ord', 'field.ord', 'field.ordTitle')}
