@@ -63,11 +63,12 @@ afterwards) and **stems** (one WAV per voice in a ZIP).
 npm install
 npm run dev     # development server
 npm test        # unit tests (DSP, BRR, player, SPC driver, exports, UI helpers)
+npm run coverage   # the same with coverage
 npm run build   # type check and production build into dist/
 npm run smoke -- smoke-screenshots --chromium   # browser smoke test of the built site
 ```
 
-CI runs the tests and the build on every pull request, plus the browser smoke test in Chromium, Firefox and
+[TESTING.md](TESTING.md) explains what the tests cover. CI runs the tests and the build on every pull request, plus the browser smoke test in Chromium, Firefox and
 WebKit. Pushes to `main` are deployed to GitHub Pages at <https://snes.chiptrackr.com/>; the custom domain
 is set in the repository's Pages settings (an Actions deploy ignores a `CNAME` file). The build uses relative
 paths, so it runs at a domain root and under a sub-path alike.
