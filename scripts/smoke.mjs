@@ -82,6 +82,23 @@ async function open(screen, { locale = 'en-US', path = '', ready = '#pattern .pr
   const context = await browser.newContext({ locale, serviceWorkers: 'block', acceptDownloads: true, ...options });
   // Without this, an action that never completes (such as a tap) waits forever.
   context.setDefaultTimeout(15000);
+  // Tap what reaches the speakers: an analyser between the output and the destination keeps the loudest level.
+  await context.addInitScript(() => {
+    window.__peak = 0;
+    const connect = AudioNode.prototype.connect;
+    AudioNode.prototype.connect = function (dest, ...rest) {
+      if (dest instanceof AudioDestinationNode) {
+        const analyser = this.context.createAnalyser();
+        connect.call(this, analyser);
+        const buf = new Float32Array(analyser.fftSize);
+        setInterval(() => {
+          analyser.getFloatTimeDomainData(buf);
+          for (const v of buf) window.__peak = Math.max(window.__peak, Math.abs(v));
+        }, 50);
+      }
+      return connect.call(this, dest, ...rest);
+    };
+  });
   const page = await context.newPage();
   const errors = [];
   // Firefox rejects the old page's pending promises with this when it reloads; that is not a bug.
@@ -146,22 +163,37 @@ for (const screen of screens) {
       if (engine === 'chromium') {
         // The worklet reports each row it plays; the play cursor must reach a later row.
         await page.waitForFunction(() => Number(document.querySelector('.play-row')?.dataset.row ?? 0) > 2, null, { timeout: 10000 });
-        // The scope traces stay centred while playing.
-        const off = await page.evaluate(() =>
-          [...document.querySelectorAll('#chan-head canvas')].map((c) => {
-            const d = c.getContext('2d').getImageData(0, 0, c.width, c.height).data;
-            let top = c.height;
-            let bottom = -1;
-            for (let i = 3; i < d.length; i += 4)
-              if (d[i] > 100) {
-                const y = Math.floor((i - 3) / 4 / c.width);
-                top = Math.min(top, y);
-                bottom = Math.max(bottom, y);
-              }
-            return bottom < 0 ? 1 : Math.abs((top + bottom) / 2 / c.height - 0.5);
-          }),
-        );
-        assert(off.every((o) => o < 0.2), `scope traces are off-centre by ${off.map((o) => o.toFixed(2)).join(' ')}`);
+        // Moving rows are not enough: the song must reach the speakers (empty samples once played silence).
+        const peak = await page.evaluate(() => window.__peak);
+        assert(peak > 0.05, `the output stayed silent while playing (peak ${peak.toFixed(4)})`);
+        // The scope traces stay centred while playing: over a few frames each trace reaches across the middle
+        // of its canvas (a single frame of a real waveform can sit on one side).
+        const spans = [];
+        for (let frame = 0; frame < 6; frame++) {
+          spans.push(
+            await page.evaluate(() =>
+              [...document.querySelectorAll('#chan-head canvas')].map((c) => {
+                const d = c.getContext('2d').getImageData(0, 0, c.width, c.height).data;
+                let top = c.height;
+                let bottom = -1;
+                for (let i = 3; i < d.length; i += 4)
+                  if (d[i] > 100) {
+                    const y = Math.floor((i - 3) / 4 / c.width);
+                    top = Math.min(top, y);
+                    bottom = Math.max(bottom, y);
+                  }
+                return [top / c.height, bottom < 0 ? 1 : (bottom + 1) / c.height];
+              }),
+            ),
+          );
+          await page.waitForTimeout(80);
+        }
+        const off = spans[0].map((_, ch) => {
+          const top = Math.min(...spans.map((s) => s[ch][0]));
+          const bottom = Math.max(...spans.map((s) => s[ch][1]));
+          return Math.max(0, top - 0.5, 0.5 - bottom);
+        });
+        assert(off.every((o) => o < 0.1), `scope traces miss the middle by ${off.map((o) => o.toFixed(2)).join(' ')}`);
       } else {
         await page.waitForTimeout(500);
       }

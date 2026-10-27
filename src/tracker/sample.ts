@@ -18,21 +18,42 @@ export interface Sample {
   rate: number;
 }
 
+const B64 = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
+const B64_INDEX = new Int16Array(128).fill(-1);
+for (let i = 0; i < 64; i++) B64_INDEX[B64.charCodeAt(i)] = i;
+
+// Base64 by hand: the audio worklet decodes the samples, and AudioWorkletGlobalScope has no atob/btoa.
 export function toBase64(bytes: Uint8Array): string {
   let s = '';
-  for (let i = 0; i < bytes.length; i += 0x8000) s += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
-  return btoa(s);
+  for (let i = 0; i < bytes.length; i += 3) {
+    const n = (bytes[i] << 16) | ((bytes[i + 1] ?? 0) << 8) | (bytes[i + 2] ?? 0);
+    s += B64[n >> 18] + B64[(n >> 12) & 63];
+    s += i + 1 < bytes.length ? B64[(n >> 6) & 63] : '=';
+    s += i + 2 < bytes.length ? B64[n & 63] : '=';
+  }
+  return s;
 }
 
+/** Decodes base64; anything that is not base64 gives an empty result. */
 export function fromBase64(text: string): Uint8Array {
-  try {
-    const s = atob(text);
-    const out = new Uint8Array(s.length);
-    for (let i = 0; i < s.length; i++) out[i] = s.charCodeAt(i);
-    return out;
-  } catch {
-    return new Uint8Array(0);
+  const clean = text.replace(/[\s=]+$/, '').replace(/\s+/g, '');
+  if (clean.length % 4 === 1) return new Uint8Array(0);
+  const out = new Uint8Array(Math.floor((clean.length * 3) / 4));
+  let acc = 0;
+  let bits = 0;
+  let o = 0;
+  for (let i = 0; i < clean.length; i++) {
+    const c = clean.charCodeAt(i);
+    const v = c < 128 ? B64_INDEX[c] : -1;
+    if (v < 0) return new Uint8Array(0);
+    acc = (acc << 6) | v;
+    bits += 6;
+    if (bits >= 8) {
+      bits -= 8;
+      out[o++] = (acc >> bits) & 0xff;
+    }
   }
+  return out.subarray(0, o);
 }
 
 /** The sample's BRR bytes, whole blocks only. */

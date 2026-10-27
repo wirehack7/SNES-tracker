@@ -44,6 +44,30 @@ describe('samples', () => {
     expect(Array.from(fromBase64(toBase64(bytes)))).toEqual(Array.from(bytes));
   });
 
+  it('encodes base64 like the browser, without atob and btoa', () => {
+    // The audio worklet decodes the samples, and AudioWorkletGlobalScope has neither.
+    const { atob, btoa } = globalThis;
+    try {
+      // @ts-expect-error removed to stand in for the worklet scope
+      delete globalThis.atob;
+      // @ts-expect-error see above
+      delete globalThis.btoa;
+      for (const length of [0, 1, 2, 3, 4, 5, 257]) {
+        const bytes = Uint8Array.from({ length }, (_, i) => (i * 37 + 11) & 0xff);
+        const text = toBase64(bytes);
+        expect(text).toBe(Buffer.from(bytes).toString('base64'));
+        expect(Array.from(fromBase64(text))).toEqual(Array.from(bytes));
+      }
+    } finally {
+      Object.assign(globalThis, { atob, btoa });
+    }
+  });
+
+  it('decodes nothing from text that is not base64', () => {
+    expect(fromBase64('ab$d')).toHaveLength(0);
+    expect(fromBase64('abcde')).toHaveLength(0);
+  });
+
   it('counts its bytes and blocks', () => {
     const s = sampleFromPcm('x', new Array(64).fill(0), 16000);
     expect(sampleBytes(s)).toHaveLength(sampleBlocks(s) * BRR_BLOCK_BYTES);
