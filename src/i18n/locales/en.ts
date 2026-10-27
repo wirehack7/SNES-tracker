@@ -374,5 +374,9 @@ export const en = {
   'about.credits': 'Made by {author}. Free software under the MIT license.',
   'about.repo': 'Source code on GitHub ↗',
   'about.manual': 'Manual ↗',
+  'about.screen': 'Title screen: SNES TRACKER over a rotating Mode 7 floor, with a scrolling credits line',
+  'about.scroller':
+    'SNES TRACKER V{version}  *  8 VOICES  *  BRR SAMPLES  *  ADSR & GAIN  *  ECHO WITH FIR FILTER  *  SPC, WAV, MP3, MP4 & XM EXPORT  *  MADE BY WIREHACK7  *  GREETINGS TO ALL TRACKER FANS  ♥',
+  'about.still': 'MADE BY WIREHACK7',
   'about.close': 'Close',
 } as const;

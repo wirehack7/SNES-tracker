@@ -347,5 +347,9 @@ export const de: Translation = {
   'about.credits': 'Von {author}. Freie Software unter der MIT-Lizenz.',
   'about.repo': 'Quellcode auf GitHub ↗',
   'about.manual': 'Handbuch ↗',
+  'about.screen': 'Titelbild: SNES TRACKER über einem drehenden Mode-7-Boden, mit laufender Credits-Zeile',
+  'about.scroller':
+    'SNES TRACKER V{version}  *  8 STIMMEN  *  BRR-SAMPLES  *  ADSR & GAIN  *  ECHO MIT FIR-FILTER  *  EXPORT ALS SPC, WAV, MP3, MP4 & XM  *  VON WIREHACK7  *  GRÜSSE AN ALLE TRACKER-FANS  ♥',
+  'about.still': 'VON WIREHACK7',
   'about.close': 'Schließen',
 };

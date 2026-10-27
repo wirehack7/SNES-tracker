@@ -27,6 +27,7 @@ keeps your songs in the browser.
 - [Saving and loading](#saving-and-loading)
 - [Exporting](#exporting)
 - [Tips and hardware quirks](#tips-and-hardware-quirks)
+- [About](#about)
 - [Privacy](#privacy)
 
 ## Quick start
@@ -360,6 +361,17 @@ is listed after the export.
 - Pitch modulation reads the *previous* voice's output, so put the modulator
   directly to the left of the voice it modulates.
 - Keep an eye on the audio RAM badge before you commit to a long echo.
+
+## About
+
+**Help → About** opens a small 16-bit title screen: SNES TRACKER waves over a
+Mode 7 floor that turns under a sunset sky, and the credits scroll along the
+bottom. It is drawn like the console draws it: 256 pixels wide, 15-bit colours,
+one Mode 7 matrix and one sky colour per scanline (as HDMA would set them), and
+a mosaic fade-in. Tap the screen to play the fade-in again. With *reduce
+motion* switched on in the system settings it shows a still picture instead.
+
+![About screen](images/about.png)
 
 ## Privacy
 
