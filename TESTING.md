@@ -16,7 +16,7 @@ npm run smoke -- smoke-screenshots --chromium   # browser smoke test of dist/ (a
 
 ## Unit tests
 
-457 tests in 19 files under `tests/`.
+476 tests in 20 files under `tests/`.
 
 | File | Tests | What it proves |
 | --- | ---: | --- |
@@ -31,6 +31,7 @@ npm run smoke -- smoke-screenshots --chromium   # browser smoke test of dist/ (a
 | `export/spc.test.ts` | 14 | Register stream capture, SPC file layout and ID666 tags, and **the exported driver run on an SPC700 interpreter** (`export/spc700.ts`): its DSP writes and their timing match the capture |
 | `export/spcimport.test.ts` | 7 | SPC import: the tracker's own SPC opens as the same song; from other SPCs the samples in the sample directory, their loops and tuning, voice envelopes and echo; invalid entries skipped; ID666 text and binary tags |
 | `spc/cpu.test.ts` | 258 | **SPC700 opcode coverage: all 256 opcodes**, each against 32 cases of the [SingleStepTests](https://github.com/SingleStepTests/spc700) reference suite (registers, flags, memory and cycle count after one instruction from a random state), and the extra cycles of taken branches |
+| `spc/transcribe.test.ts` | 12 | **SPC transcription**: an SPC of a known song, played by its own driver, comes back with every note on its row, at its pitch (within 0.5 %), with key-offs, volumes, envelopes and tempo; over 95 % of the demo's notes; panning, noise, GAIN, transposition and what cannot play; the row grid with timer jitter, drift and a jump at the loop point; tempo and volume/pan conversion |
 | `spc/apu.test.ts` | 12 | The audio unit: IPL ROM boot handshake, state restored from an SPC file, timers 0-2 with dividers and 4-bit counters, the DSP port, control register, 32 cycles per sample, SLEEP/STOP; **the exported SPC played on the emulated SPC700** writes the captured registers in order, and its held voices match the tracker sample for sample; the engine switches between SPC and song |
 | `export/xm.test.ts` | 16 | XM tuning, envelopes measured on the DSP, effect translation and warnings, the file layout, samples that decode back to the BRR audio |
 | `export/wav.test.ts` | 12 | WAV files, offline rendering (loops, sample rates, limits), stems that add up to the mix, the engine, the song format |
@@ -49,7 +50,7 @@ Measured with V8 over `src/` (`npm run coverage`):
 | `src/dsp` — S-DSP, BRR, Gaussian table | 98 % | 89 % | 95 % / 85 % |
 | `src/tracker` — song, player, samples, synths, library | 92 % | 88 % | 85 % / 80 % |
 | `src/export` — SPC, SPC import, stream, WAV, XM, ZIP | 98 % | 88 % | 90 % / 80 % |
-| `src/spc` — SPC700 CPU, audio unit | 99.6 % | 99.6 % | 98 % / 95 % |
+| `src/spc` — SPC700 CPU, audio unit, transcription | 99 % | 96 % | 98 % / 95 % |
 | `src/audio/engine.ts` | 92 % | 67 % | — |
 | everything in `src/` | 56 % | 51 % | — |
 
@@ -84,8 +85,8 @@ measured in timer periods, and the XM samples decoded back bit for bit.
   - The instrument envelope editor works.
 - **Song library:** save, rename, duplicate, delete and back up songs.
 - **Samples:** importing audio and the synths create samples, and those samples end up in the SPC file.
-- **SPC files:** the exported SPC opens again as the song, a foreign SPC adds its samples, and the SPC player
-  plays it on the emulated SPC700 and stops.
+- **SPC files:** the exported SPC opens again as the song, a foreign SPC adds its samples, the SPC player
+  plays it on the emulated SPC700 and stops, and a foreign SPC of the demo is transcribed back into patterns.
 - **Exports:**
   - Each export downloads a valid file: SPC, WAV, MP3, XM, JSON and the stem ZIP.
   - MP4 either downloads, or a clear message appears where WebCodecs are missing.

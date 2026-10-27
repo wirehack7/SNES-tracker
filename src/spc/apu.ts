@@ -47,6 +47,8 @@ export class Apu implements Bus {
   /** Values the SPC700 wrote to the ports (for the SNES CPU). */
   readonly outPorts = new Uint8Array(4);
   iplEnabled = true;
+  /** Called after each write to a DSP register (for watching what a driver plays). */
+  onDspWrite?: (register: number, value: number) => void;
   dspAddr = 0;
   /** CPU cycles owed to (positive) or run ahead of (negative) the DSP. */
   private budget = 0;
@@ -151,7 +153,10 @@ export class Apu implements Bus {
           break;
         case 0xf3:
           // $80-$FF are read-only mirrors.
-          if (this.dspAddr < 0x80) this.dsp.write(this.dspAddr, value);
+          if (this.dspAddr < 0x80) {
+            this.dsp.write(this.dspAddr, value);
+            this.onDspWrite?.(this.dspAddr, value);
+          }
           break;
         case 0xf4:
         case 0xf5:

@@ -328,17 +328,28 @@ and how much is left.
 ### SPC files
 
 An SPC file is a snapshot of the sound chip's memory with the game's own sound
-driver in it, so the notes of a song from a game cannot be turned back into
-patterns. What **Import…** does with an SPC:
+driver in it. What **Import…** does with an SPC:
 
 - An SPC exported from this tracker carries the song after the SPC data, so it
   opens again exactly as it was exported.
-- From any other SPC the samples in the sample directory become a new song: one
-  instrument per sample, with the envelope of a voice that was playing it and
-  the echo settings, and an empty pattern. **♫** in the library moves them
-  into another song, and **Import audio…** in the SAMPLE tab adds them to the
-  current one. Short loops are tuned as one cycle to `C-4`; other samples play
-  at 32 kHz on `C-4`, so adjust **Rate** or **Tune** by ear.
+- Any other SPC, game rips included, is **transcribed**: its driver runs on the
+  emulated SPC700 for the length in the file's tag (two minutes without one),
+  and every note it plays is written down with its sample, pitch, volume,
+  panning and envelope, every key-off as `===`, and volume changes in between
+  in the volume column. The row length is measured from the notes' timing and
+  set as speed and BPM; the song starts on its first note. This takes a few
+  seconds; a message shows the progress.
+- One instrument per sample (and one for the noise generator), with the
+  envelope of the voice that first played it; the echo and main volume as the
+  driver left them. Short loops are tuned as one cycle to `C-4`; other samples
+  play at 32 kHz on `C-4`, and the instrument's **Tune** takes up the
+  difference, so the notes sound at the pitch the game played.
+- What a driver does between notes — pitch slides, vibrato, tremolo, tempo
+  changes — is not written down, so the pattern plays the notes without those
+  nuances. **Play SPC…** below plays the original.
+- **♫** in the library moves the instruments into another song, and
+  **Import audio…** in the SAMPLE tab adds the samples of an SPC to the current
+  song.
 
 **Play SPC…** under **SPC player** plays any SPC file as it is, game rips
 included: the file's memory, DSP registers and its own sound driver run on an
