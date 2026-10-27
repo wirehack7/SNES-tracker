@@ -241,19 +241,20 @@ export class Spc700 {
     return r;
   }
 
-  /** Read, modify, write at an address. */
-  private rmw(addr: number, fn: (v: number) => number) {
-    this.wr(addr, fn(this.rd(addr)));
+  /** Read, modify, write at an address: ASL, ROL, LSR, ROR, DEC, INC (0-5). */
+  private rmw(addr: number, op: number) {
+    const v = this.rd(addr);
+    this.wr(addr, op === 0 ? this.asl(v) : op === 1 ? this.rol(v) : op === 2 ? this.lsr(v) : op === 3 ? this.ror(v) : op === 4 ? this.dec(v) : this.inc(v));
   }
 
-  /** `op` on a memory operand into A. */
-  private toA(addr: number, fn: (a: number, b: number) => number) {
-    this.a = fn.call(this, this.a, this.rd(addr));
+  /** ALU operation `row` on a memory operand into A. */
+  private toA(addr: number, row: number) {
+    this.a = this.aluOp(row, this.a, this.rd(addr));
   }
 
-  /** `op` from memory to memory (dp,dp / (X),(Y) / dp,#imm), CMP without the write. */
-  private mem(dst: number, src: number, fn: (a: number, b: number) => number, write = true) {
-    const r = fn.call(this, this.rd(dst), src);
+  /** ALU operation `row` from memory to memory (dp,dp / (X),(Y) / dp,#imm), CMP without the write. */
+  private mem(dst: number, src: number, row: number, write = true) {
+    const r = this.aluOp(row, this.rd(dst), src);
     if (write) this.wr(dst, r);
   }
 
@@ -314,7 +315,8 @@ export class Spc700 {
       // SET1 / CLR1 dp.bit
       const addr = this.aDp();
       const bit = 1 << (row >> 1);
-      this.rmw(addr, (v) => (row & 1 ? v & ~bit : v | bit));
+      const v = this.rd(addr);
+      this.wr(addr, row & 1 ? v & ~bit : v | bit);
       return;
     }
     if (lo === 0x03) {
@@ -448,41 +450,41 @@ export class Spc700 {
       // ------------------------------------------------ dp,#imm and (X),(Y) ALU forms
       case 0x18: case 0x38: case 0x58: case 0x78: case 0x98: case 0xb8: {
         const imm = this.fetch();
-        return this.mem(this.aDp(), imm, this.aluFn(row), op !== 0x78);
+        return this.mem(this.aDp(), imm, row, op !== 0x78);
       }
       case 0x19: case 0x39: case 0x59: case 0x79: case 0x99: case 0xb9: {
         const src = this.rd(this.aY());
-        return this.mem(this.aX(), src, this.aluFn(row), op !== 0x79);
+        return this.mem(this.aX(), src, row, op !== 0x79);
       }
       case 0x09: case 0x29: case 0x49: case 0x69: case 0x89: case 0xa9: {
         const src = this.rd(this.aDp());
-        return this.mem(this.aDp(), src, this.aluFn(row), op !== 0x69);
+        return this.mem(this.aDp(), src, row, op !== 0x69);
       }
 
       // ------------------------------------------------ shifts, INC, DEC
-      case 0x0b: return this.rmw(this.aDp(), (v) => this.asl(v));
-      case 0x0c: return this.rmw(this.aAbs(), (v) => this.asl(v));
-      case 0x1b: return this.rmw(this.aDpX(), (v) => this.asl(v));
+      case 0x0b: return this.rmw(this.aDp(), 0);
+      case 0x0c: return this.rmw(this.aAbs(), 0);
+      case 0x1b: return this.rmw(this.aDpX(), 0);
       case 0x1c: this.a = this.asl(this.a); return;
-      case 0x2b: return this.rmw(this.aDp(), (v) => this.rol(v));
-      case 0x2c: return this.rmw(this.aAbs(), (v) => this.rol(v));
-      case 0x3b: return this.rmw(this.aDpX(), (v) => this.rol(v));
+      case 0x2b: return this.rmw(this.aDp(), 1);
+      case 0x2c: return this.rmw(this.aAbs(), 1);
+      case 0x3b: return this.rmw(this.aDpX(), 1);
       case 0x3c: this.a = this.rol(this.a); return;
-      case 0x4b: return this.rmw(this.aDp(), (v) => this.lsr(v));
-      case 0x4c: return this.rmw(this.aAbs(), (v) => this.lsr(v));
-      case 0x5b: return this.rmw(this.aDpX(), (v) => this.lsr(v));
+      case 0x4b: return this.rmw(this.aDp(), 2);
+      case 0x4c: return this.rmw(this.aAbs(), 2);
+      case 0x5b: return this.rmw(this.aDpX(), 2);
       case 0x5c: this.a = this.lsr(this.a); return;
-      case 0x6b: return this.rmw(this.aDp(), (v) => this.ror(v));
-      case 0x6c: return this.rmw(this.aAbs(), (v) => this.ror(v));
-      case 0x7b: return this.rmw(this.aDpX(), (v) => this.ror(v));
+      case 0x6b: return this.rmw(this.aDp(), 3);
+      case 0x6c: return this.rmw(this.aAbs(), 3);
+      case 0x7b: return this.rmw(this.aDpX(), 3);
       case 0x7c: this.a = this.ror(this.a); return;
-      case 0x8b: return this.rmw(this.aDp(), (v) => this.dec(v));
-      case 0x8c: return this.rmw(this.aAbs(), (v) => this.dec(v));
-      case 0x9b: return this.rmw(this.aDpX(), (v) => this.dec(v));
+      case 0x8b: return this.rmw(this.aDp(), 4);
+      case 0x8c: return this.rmw(this.aAbs(), 4);
+      case 0x9b: return this.rmw(this.aDpX(), 4);
       case 0x9c: this.a = this.dec(this.a); return;
-      case 0xab: return this.rmw(this.aDp(), (v) => this.inc(v));
-      case 0xac: return this.rmw(this.aAbs(), (v) => this.inc(v));
-      case 0xbb: return this.rmw(this.aDpX(), (v) => this.inc(v));
+      case 0xab: return this.rmw(this.aDp(), 5);
+      case 0xac: return this.rmw(this.aAbs(), 5);
+      case 0xbb: return this.rmw(this.aDpX(), 5);
       case 0xbc: this.a = this.inc(this.a); return;
       case 0x1d: this.x = this.dec(this.x); return;
       case 0x3d: this.x = this.inc(this.x); return;
@@ -603,24 +605,30 @@ export class Spc700 {
   }
 
   /** OR, AND, EOR, CMP, ADC, SBC for the rows 0-B (two rows each). */
-  private aluFn(row: number): (a: number, b: number) => number {
-    return [this.or, this.and, this.eor, this.cmp, this.adc, this.sbc][row >> 1];
+  private aluOp(row: number, a: number, b: number): number {
+    switch (row >> 1) {
+      case 0: return this.or(a, b);
+      case 1: return this.and(a, b);
+      case 2: return this.eor(a, b);
+      case 3: return this.cmp(a, b);
+      case 4: return this.adc(a, b);
+      default: return this.sbc(a, b);
+    }
   }
 
   /** The A-register forms of the six ALU operations, columns 4-8. Returns false for other opcodes. */
   private alu(op: number): boolean {
     const lo = op & 0x0f;
     const row = op >> 4;
-    const fn = this.aluFn(row);
     const odd = row & 1;
     switch (lo) {
-      case 0x04: this.toA(odd ? this.aDpX() : this.aDp(), fn); return true;
-      case 0x05: this.toA(odd ? this.aAbsX() : this.aAbs(), fn); return true;
-      case 0x06: this.toA(odd ? this.aAbsY() : this.aX(), fn); return true;
-      case 0x07: this.toA(odd ? this.aIndY() : this.aIndX(), fn); return true;
+      case 0x04: this.toA(odd ? this.aDpX() : this.aDp(), row); return true;
+      case 0x05: this.toA(odd ? this.aAbsX() : this.aAbs(), row); return true;
+      case 0x06: this.toA(odd ? this.aAbsY() : this.aX(), row); return true;
+      case 0x07: this.toA(odd ? this.aIndY() : this.aIndX(), row); return true;
       case 0x08:
         if (odd) return false;
-        this.a = fn.call(this, this.a, this.fetch());
+        this.a = this.aluOp(row, this.a, this.fetch());
         return true;
     }
     return false;

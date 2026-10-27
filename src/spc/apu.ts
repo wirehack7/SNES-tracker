@@ -49,9 +49,18 @@ export class Apu implements Bus {
   iplEnabled = true;
   /** Called after each write to a DSP register (for watching what a driver plays). */
   onDspWrite?: (register: number, value: number) => void;
+  /** Called before each read of a DSP register. */
+  onDspRead?: (register: number) => void;
   dspAddr = 0;
   /** CPU cycles owed to (positive) or run ahead of (negative) the DSP. */
   private budget = 0;
+  /**
+   * Skip the cycles a driver spends waiting for a timer (it read a counter
+   * as 0): its notes come out the same, at most a timer period later, for a
+   * fraction of the work. For watching a driver, not for listening.
+   */
+  skipIdle = false;
+  private idleTimer = -1;
   private fastClock = 0;
   private slowClock = 0;
 
@@ -108,6 +117,7 @@ export class Apu implements Bus {
         case 0xf2:
           return this.dspAddr;
         case 0xf3:
+          this.onDspRead?.(this.dspAddr & 0x7f);
           return this.dsp.read(this.dspAddr & 0x7f);
         case 0xf4:
         case 0xf5:
@@ -123,6 +133,7 @@ export class Apu implements Bus {
           const t = this.timers[addr - 0xfd];
           const v = t.counter;
           t.counter = 0;
+          if (!v && this.skipIdle && t.enabled) this.idleTimer = addr - 0xfd;
           return v;
         }
         default:
@@ -179,19 +190,35 @@ export class Apu implements Bus {
   runCpu(cycles: number) {
     this.budget += cycles;
     while (this.budget > 0) {
-      const n = this.cpu.step();
-      this.budget -= n;
-      this.fastClock += n;
-      while (this.fastClock >= 16) {
-        this.fastClock -= 16;
-        this.timers[2].tick();
+      if (this.idleTimer >= 0) {
+        // The driver waits for a timer that has not counted yet: jump to the cycle it does.
+        const t = this.timers[this.idleTimer];
+        const period = this.idleTimer === 2 ? 16 : 128;
+        const clock = this.idleTimer === 2 ? this.fastClock : this.slowClock;
+        const ticks = ((t.target - t.stage - 1) & 0xff) + 1;
+        const n = Math.min(this.budget, period - clock + (ticks - 1) * period);
+        this.idleTimer = -1;
+        this.cpu.cycles += n;
+        this.advance(n);
+        continue;
       }
-      this.slowClock += n;
-      while (this.slowClock >= 128) {
-        this.slowClock -= 128;
-        this.timers[0].tick();
-        this.timers[1].tick();
-      }
+      this.advance(this.cpu.step());
+    }
+  }
+
+  /** Time passes: the budget goes down and the timers count. */
+  private advance(n: number) {
+    this.budget -= n;
+    this.fastClock += n;
+    while (this.fastClock >= 16) {
+      this.fastClock -= 16;
+      this.timers[2].tick();
+    }
+    this.slowClock += n;
+    while (this.slowClock >= 128) {
+      this.slowClock -= 128;
+      this.timers[0].tick();
+      this.timers[1].tick();
     }
   }
 

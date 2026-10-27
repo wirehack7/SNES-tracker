@@ -110,6 +110,27 @@ describe('APU', () => {
     for (const r of [0xf0, 0xf1, 0xfa, 0xfb, 0xfc]) expect(apu.read(r)).toBe(0);
   });
 
+  it('skips the cycles a driver waits for a timer, and it counts the same ticks', () => {
+    // loop: mov a,$FD+n / beq loop / inc $10 / bra loop
+    for (const [n, target] of [[0, 3], [2, 40]]) {
+      const code = [0xe4, 0xfd + n, 0xf0, 0xfc, 0xab, 0x10, 0x2f, 0xf8];
+      const ticks = (skipIdle: boolean) => {
+        const apu = apuWith(program(code, { 0xf1: 1 << n, [0xfa + n]: target }));
+        apu.skipIdle = skipIdle;
+        let steps = 0;
+        const step = apu.cpu.step.bind(apu.cpu);
+        apu.cpu.step = () => (steps++, step());
+        apu.runCpu(64000);
+        return { count: apu.ram[0x10], steps };
+      };
+      const plain = ticks(false);
+      const fast = ticks(true);
+      expect(Math.abs(plain.count - 64000 / ((n === 2 ? 16 : 128) * target)), `timer ${n}`).toBeLessThanOrEqual(1);
+      expect(Math.abs(fast.count - plain.count)).toBeLessThanOrEqual(1);
+      expect(fast.steps).toBeLessThan(plain.steps / 4);
+    }
+  });
+
   it('halts on SLEEP and STOP, and time goes on', () => {
     const apu = apuWith(program([0xef]));
     apu.run(10);

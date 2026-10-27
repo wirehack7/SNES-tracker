@@ -9,7 +9,10 @@
  * between notes (pitch slides, vibrato, tempo changes, its own loop points)
  * comes out only as far as rows, notes and volumes can say it.
  */
-import { COUNTER_RATES, DIR, DSP_RATE, Dsp, EON, FLG, KOFF, KON, MVOLL, NON, VOICE_COUNT, V_ADSR1, V_ADSR2, V_GAIN, V_PITCHH, V_PITCHL, V_SRCN, V_VOLL, V_VOLR } from '../dsp/dsp';
+import {
+  COUNTER_RATES, DIR, DSP_RATE, Dsp, ENDX, EON, FLG, KOFF, KON, MVOLL, NON, VOICE_COUNT, V_ADSR1, V_ADSR2, V_ENVX, V_GAIN, V_OUTX, V_PITCHH, V_PITCHL, V_SRCN,
+  V_VOLL, V_VOLR,
+} from '../dsp/dsp';
 import { SpcImport, echoOf, embeddedSong, entrySample, isSpc, setEnvelope, songFromSpc, spcSeconds, spcTags } from '../export/spcimport';
 import { C4, NOTE_COUNT } from '../tracker/notes';
 import { FX, tickUnits } from '../tracker/player';
@@ -17,7 +20,7 @@ import { SAMPLE_COUNT, Sample } from '../tracker/sample';
 import {
   CHANNEL_COUNT, EMPTY, INSTRUMENT_COUNT, Instrument, MAX_BPM, MAX_VOLUME, MIN_BPM, NOTE_OFF, Pattern, Song, createSong, defaultInstrument, emptyPattern,
 } from '../tracker/song';
-import { Apu } from './apu';
+import { Apu, CYCLES_PER_SAMPLE } from './apu';
 
 /** Samples between a key-on and reading the voice's registers (the DSP itself takes 5 to start the voice). */
 const KON_DELAY = 16;
@@ -81,8 +84,23 @@ export interface CaptureOptions {
   onProgress?: (done: number) => void;
 }
 
-/** Runs the SPC's driver for `seconds` and records what it plays. */
+/** Samples run at a time when the DSP is left out (the CPU alone, 512 cycles). */
+const STEP = KON_DELAY;
+
+/** Registers the DSP writes back: a driver that reads them needs the DSP running. */
+const isDspOutput = (reg: number) => (reg & 0x0f) === V_ENVX || (reg & 0x0f) === V_OUTX || reg === ENDX;
+
+/**
+ * Runs the SPC's driver for `seconds` and records what it plays. Only the
+ * SPC700 runs, which is several times faster, unless the driver reads what
+ * the DSP writes back (envelope, output, end flags): then the capture starts
+ * again with the DSP.
+ */
 export async function captureSpc(data: Uint8Array, opts: CaptureOptions = {}): Promise<SpcCapture> {
+  return (await capture(data, opts, false)) ?? (await capture(data, opts, true))!;
+}
+
+async function capture(data: Uint8Array, opts: CaptureOptions, withDsp: boolean): Promise<SpcCapture | null> {
   const dsp = new Dsp();
   const apu = new Apu(dsp);
   apu.load(data);
@@ -93,6 +111,7 @@ export async function captureSpc(data: Uint8Array, opts: CaptureOptions = {}): P
   const pending: { voice: number; time: number }[] = [];
   let volDirty = 0;
   let time = 0;
+  let needsDsp = false;
   apu.onDspWrite = (reg, value) => {
     if (reg === KON) {
       for (let v = 0; v < VOICE_COUNT; v++) if ((value >> v) & 1) pending.push({ voice: v, time });
@@ -102,11 +121,21 @@ export async function captureSpc(data: Uint8Array, opts: CaptureOptions = {}): P
       volDirty |= 1 << (reg >> 4);
     }
   };
+  if (!withDsp) {
+    apu.onDspRead = (reg) => (needsDsp ||= isDspOutput(reg));
+    apu.skipIdle = true;
+  }
   const regs = dsp.regs;
-  const chunk = DSP_RATE;
-  for (; time < total; time++) {
-    apu.run(1);
-    if (dsp.outCount >= 4096) dsp.consume(dsp.outCount);
+  const step = withDsp ? 1 : STEP;
+  const yieldEvery = withDsp ? DSP_RATE : DSP_RATE * 8;
+  for (; time < total; time += step) {
+    if (withDsp) {
+      apu.run(1);
+      if (dsp.outCount >= 4096) dsp.consume(dsp.outCount);
+    } else {
+      apu.runCpu(step * CYCLES_PER_SAMPLE);
+      if (needsDsp) return null;
+    }
     while (pending.length && pending[0].time + KON_DELAY <= time) {
       const { voice, time: t } = pending.shift()!;
       const b = voice << 4;
@@ -130,7 +159,7 @@ export async function captureSpc(data: Uint8Array, opts: CaptureOptions = {}): P
         if ((volDirty >> v) & 1) volumes.push({ time, voice: v, volL: regs[(v << 4) + V_VOLL], volR: regs[(v << 4) + V_VOLR] });
       volDirty = 0;
     }
-    if (time % chunk === chunk - 1) {
+    if (time % yieldEvery === yieldEvery - step) {
       opts.onProgress?.(time / total);
       await new Promise((r) => setTimeout(r, 0));
     }
@@ -175,12 +204,13 @@ export function fitGrid(eventTimes: number[]): Grid {
   const first = times[0];
   const rel = times.map((t) => t - first);
   // Coarse pass, then the candidates refined from the longest row down.
+  // Steps of 0.2 %: a row length off by that much drifts a fifth of a row over 100 rows, still within the fit.
   const coarse: { row: number; error: number }[] = [];
-  for (let row = MIN_ROW; row <= MAX_ROW; row += 2) coarse.push({ row, error: gridError(rel, row).error });
+  for (let row = MIN_ROW; row <= MAX_ROW; row *= 1.002) coarse.push({ row, error: gridError(rel, row).error });
   // The best fit within 3 % of a row length (a loose tolerance lets a slightly wrong length pass), then to 1/8 sample.
   const refine = (row: number) => {
     let fine = { row, ...gridError(rel, row) };
-    for (let r = Math.max(MIN_ROW, Math.round(row * 0.97)); r <= row * 1.03; r++) {
+    for (let r = Math.max(MIN_ROW, Math.round(row * 0.97)); r <= row * 1.03; r += Math.max(1, Math.round(row / 2000))) {
       const g = gridError(rel, r);
       if (g.error * r < fine.error * fine.row - 1e-9) fine = { row: r, ...g };
     }
@@ -239,11 +269,17 @@ export function captureRow(capture: SpcCapture): number {
   const notes = capture.notes.map((n) => n.time);
   const row = rowLength(notes);
   // Key-offs of sounding voices that are not just before a new note on the same voice.
-  const onsets = capture.notes.map((n) => [n.voice, n.time]);
-  const offs = capture.offs
-    .filter((o) => !onsets.some(([v, t]) => v === o.voice && t >= o.time && t - o.time < 256))
-    .map((o) => o.time);
-  if (!offs.length) return row;
+  const onsets: number[][] = Array.from({ length: VOICE_COUNT }, () => []);
+  for (const n of capture.notes) onsets[n.voice].push(n.time);
+  const next = Array(VOICE_COUNT).fill(0);
+  const offs: number[] = [];
+  for (const o of [...capture.offs].sort((a, b) => a.time - b.time)) {
+    const list = onsets[o.voice];
+    while (next[o.voice] < list.length && list[next[o.voice]] < o.time) next[o.voice]++;
+    const t = list[next[o.voice]];
+    if (t === undefined || t - o.time >= 256) offs.push(o.time);
+  }
+  if (!offs.length || row / 2 < MIN_ROW) return row;
   const all = [...notes, ...offs];
   const finer = rowLength(all);
   const ratio = row / finer;
