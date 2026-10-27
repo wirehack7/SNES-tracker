@@ -31,7 +31,7 @@ jobs:
     # apt mirrors or the browser CDN. Keep its tag at the playwright version in package.json.
     # The runner's user (1001) owns the workspace; Firefox also refuses to run as root.
     container:
-      image: mcr.microsoft.com/playwright:v1.63.0-noble
+      image: mcr.microsoft.com/playwright:v1.64.1-noble
       options: --user 1001 --ipc=host
     # A hung browser must fail the run, not hold it for hours.
     timeout-minutes: 20
