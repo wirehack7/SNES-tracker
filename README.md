@@ -6,7 +6,9 @@ Gaussian interpolation, ADSR and GAIN envelopes, the noise generator, pitch modu
 with its 8-tap FIR filter. What you hear are the same DSP register writes a sound driver makes on the console,
 and the SPC export ships them with a small SPC700 driver.
 
-**Manual:** [docs/MANUAL.md](docs/MANUAL.md), also on the site as `manual.html`.
+**Play it:** <https://snes.chiptrackr.com/>
+
+**Manual:** [docs/MANUAL.md](docs/MANUAL.md), also on the site as [manual.html](https://snes.chiptrackr.com/manual.html).
 
 ## Features
 
@@ -66,7 +68,9 @@ npm run smoke -- smoke-screenshots --chromium   # browser smoke test of the buil
 ```
 
 CI runs the tests and the build on every pull request, plus the browser smoke test in Chromium, Firefox and
-WebKit. Pushes to `main` are deployed to GitHub Pages.
+WebKit. Pushes to `main` are deployed to GitHub Pages at <https://snes.chiptrackr.com/>; the custom domain
+is set in the repository's Pages settings (an Actions deploy ignores a `CNAME` file). The build uses relative
+paths, so it runs at a domain root and under a sub-path alike.
 
 ### Layout
 
