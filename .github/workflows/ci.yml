@@ -15,7 +15,13 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
-      - run: npm test
+      # The unit tests with coverage; the thresholds in vite.config.ts fail the job when it drops.
+      - run: npm run coverage
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: coverage
+          path: coverage/
       - run: npm run build
 
   browsers:

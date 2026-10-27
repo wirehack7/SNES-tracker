@@ -1,0 +1,137 @@
+<!doctype html>
+<!-- Source of public/social-preview.png (link preview and GitHub social preview, 1280x640).
+     Render: node scripts/render-social-preview.mjs -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>SNES Tracker social preview</title>
+<style>
+  :root {
+    --bg: #cfccd6; --surface: #e6e4ec; --line: #b9b5c4; --ink: #25222e; --ink-soft: #5d5a6a;
+    --accent: #5b4a9e; --navy: #3c3480;
+    --btn-a: #d6312b; --btn-b: #e8a321; --btn-x: #2f5fc4; --btn-y: #2f9e4f;
+    --pat-bg: #f4f3f7; --pat-beat: #eae8f0; --pat-play: #5b4a9e;
+    --c-num: #8e8a9c; --c-note: #2f3f9e; --c-inst: #a23a8c; --c-vol: #2b7a3f; --c-fx: #b4570f;
+    --c-param: #7a4a12; --c-empty: #c5c1cf;
+    --scope-bg: #1d1b26; --scope-ink: #b4aaff;
+    --mono: 'DejaVu Sans Mono', 'Liberation Mono', monospace;
+    --sans: 'DejaVu Sans', 'Liberation Sans', sans-serif;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { width: 1280px; height: 640px; overflow: hidden; background: var(--bg); color: var(--ink); font-family: var(--sans); }
+  .frame { position: absolute; inset: 0; display: grid; grid-template-columns: 540px 1fr; }
+  .stripes { position: absolute; left: 0; right: 0; top: 0; height: 14px;
+             background: linear-gradient(90deg, var(--btn-a) 0 25%, var(--btn-b) 25% 50%, var(--btn-x) 50% 75%, var(--btn-y) 75%); }
+  .stripes.bottom { top: auto; bottom: 0; height: 10px; }
+  .left { padding: 52px 0 0 72px; position: relative; }
+  .pad { position: relative; width: 108px; height: 108px; margin-bottom: 20px; }
+  .btn { position: absolute; width: 38px; height: 38px; border-radius: 50%; color: #fff; font: 700 18px var(--sans);
+         display: grid; place-items: center; box-shadow: 0 4px 0 rgba(0, 0, 0, 0.28); }
+  .btn.x { left: 35px; top: 0; background: var(--btn-x); }
+  .btn.y { left: 0; top: 35px; background: var(--btn-y); }
+  .btn.a { left: 70px; top: 35px; background: var(--btn-a); }
+  .btn.b { left: 35px; top: 70px; background: var(--btn-b); }
+  h1 { font: 800 76px/0.98 var(--sans); letter-spacing: -2px; color: var(--navy); }
+  h1 span { color: var(--accent); }
+  .tag { margin-top: 24px; font: 500 25px/1.38 var(--sans); color: var(--ink); max-width: 430px; }
+  .chips { margin-top: 24px; display: flex; flex-wrap: wrap; gap: 8px; max-width: 430px; }
+  .chip { font: 700 14px var(--mono); padding: 6px 10px; border-radius: 999px; background: var(--ink-soft); color: #f4f2f6; }
+  .url { position: absolute; left: 72px; bottom: 48px; font: 700 27px var(--mono); color: var(--accent); }
+  .right { padding: 50px 60px 0 0; display: flex; flex-direction: column; gap: 16px; }
+  .console { background: #b9b6c4; border-radius: 18px; padding: 14px 18px 18px; box-shadow: 0 6px 0 #8f8b9c; }
+  .label { font: 700 12px var(--sans); color: #4a4658; letter-spacing: 2px; margin-bottom: 10px; display: flex; align-items: center; gap: 8px; }
+  .label i { width: 10px; height: 10px; border-radius: 50%; background: #e2344f; box-shadow: 0 0 6px #e2344f; }
+  .scopes { display: grid; grid-template-columns: repeat(8, 1fr); gap: 5px; background: var(--scope-bg); padding: 8px; border-radius: 6px; }
+  .scope { height: 84px; border: 1px solid #3a3746; border-radius: 3px; position: relative; }
+  .scope b { position: absolute; left: 4px; top: 2px; font: 700 10px var(--mono); color: #8e8a9c; }
+  .scope svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+  .grid { background: var(--pat-bg); border: 1px solid var(--line); border-radius: 6px; overflow: hidden; font: 700 16px/1 var(--mono); }
+  .row { display: grid; grid-template-columns: 34px repeat(4, 1fr); height: 25px; align-items: center; }
+  .row:nth-child(4n+2) { background: var(--pat-beat); }
+  .row.head { background: var(--navy); color: #f1eef8; font: 700 13px var(--sans); height: 27px; letter-spacing: 1px; }
+  .row.head > div { padding-left: 10px; }
+  .row.play { background: var(--pat-play) !important; }
+  .row.play * { color: #fbf8ff !important; }
+  .num { color: var(--c-num); padding-left: 7px; }
+  .cell { padding-left: 9px; white-space: pre; border-left: 1px solid var(--line); }
+  .n { color: var(--c-note); } .i { color: var(--c-inst); } .v { color: var(--c-vol); }
+  .f { color: var(--c-fx); } .p { color: var(--c-param); } .e { color: var(--c-empty); }
+</style>
+</head>
+<body>
+<div class="stripes"></div>
+<div class="stripes bottom"></div>
+<div class="frame">
+  <div class="left">
+    <div class="pad"><div class="btn x">X</div><div class="btn y">Y</div><div class="btn a">A</div><div class="btn b">B</div></div>
+    <h1>SNES<br><span>Tracker</span></h1>
+    <p class="tag">Compose Super Nintendo music in your browser, on desktop and phone.</p>
+    <div class="chips">
+      <span class="chip">SPC</span><span class="chip">XM</span><span class="chip">WAV</span><span class="chip">MP3</span><span class="chip">MP4</span><span class="chip">STEMS</span>
+    </div>
+    <div class="url">snes.chiptrackr.com</div>
+  </div>
+  <div class="right">
+    <div class="console">
+      <div class="label"><i></i>S-DSP · 8 VOICES · 32 kHz</div>
+      <div class="scopes" id="scopes"></div>
+    </div>
+    <div class="grid" id="grid"></div>
+  </div>
+</div>
+<script>
+  // Eight scopes: sampled instruments look smooth, unlike the Game Boy's pulses.
+  const W = 80, H = 84, mid = H / 2 + 4;
+  const seedRnd = (s) => () => (s = (s * 16807) % 2147483647) / 2147483647;
+  const wave = (k) => {
+    const pts = [];
+    const rnd = seedRnd(11 + k * 7);
+    for (let x = 0; x <= W; x++) {
+      let y;
+      switch (k) {
+        case 0: y = Math.sin(x / 5) * 0.8; break; // flute
+        case 1: y = ((x / 13) % 1) * 2 - 1; y *= 0.7; break; // saw strings
+        case 2: y = (Math.sin(x / 4) + 0.5 * Math.sin(x / 2)) * 0.5; break; // piano
+        case 3: y = Math.sin(x / 9) * Math.exp(-x / 60) * 0.95; break; // kick
+        case 4: y = (rnd() * 2 - 1) * Math.exp(-x / 40) * 0.8; break; // snare
+        case 5: y = (rnd() * 2 - 1) * 0.25; break; // hi-hat
+        case 6: y = Math.sin(x / 7) * Math.sin(x / 31) * 0.8; break; // pad with echo
+        default: y = Math.sign(Math.sin(x / 6)) * 0.3; break; // square lead
+      }
+      pts.push([x, mid - y * 30]);
+    }
+    return pts.map((p, i) => (i ? 'L' : 'M') + p[0] + ' ' + p[1].toFixed(1)).join('');
+  };
+  document.getElementById('scopes').innerHTML = [1, 2, 3, 4, 5, 6, 7, 8].map((n, k) =>
+    `<div class="scope"><b>${n}</b><svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none">
+     <path d="${wave(k)}" fill="none" stroke="#b4aaff" stroke-width="2"/></svg></div>`).join('');
+
+  // Pattern rows: [note, inst, vol, fx, param] for voices 1-4, null = empty.
+  const E = null;
+  const rows = [
+    [['C-4','01','7F','0','37'], ['E-5','02','60',E,E], ['C-2','04','7F',E,E], ['C-4','05','7F',E,E]],
+    [E, E, E, E],
+    [['G-4','01','70',E,E], ['G-5','02','58','4','24'], E, ['F#5','06','40',E,E]],
+    [E, ['===',E,E,E,E], ['C-2','04','70','C','40'], E],
+    [['A#4','01','7F','3','10'], ['C-6','02','60',E,E], E, ['D-4','05','7F',E,E]],
+    [E, E, ['G-2','04','7F',E,E], ['F#5','06','30',E,E]],
+    [['F-4','01','68',E,E], ['A-5','02','50','D','00'], E, E],
+    [['D#4','01','7F','1','08'], E, ['F-2','04','7F',E,E], ['C-4','05','7F',E,E]],
+    [['C-4','01','7F',E,E], ['E-5','02','60',E,E], ['C-2','04','7F',E,E], ['F#5','06','40',E,E]],
+    [E, E, E, ['===',E,E,E,E]],
+    [['G-4','01','70','4','26'], ['D-6','02','58',E,E], ['C-2','04','60','A','04'], E],
+  ];
+  const cell = (c) => {
+    if (!c) return '<span class="e">--- -- -- ---</span>';
+    if (c[0] === '===') return '<span class="n">===</span> <span class="e">-- -- ---</span>';
+    const [n, i, v, f, p] = c;
+    return `<span class="n">${n}</span> <span class="i">${i}</span> <span class="v">${v}</span> ` +
+      (f ? `<span class="f">${f}</span><span class="p">${p}</span>` : '<span class="e">---</span>');
+  };
+  document.getElementById('grid').innerHTML =
+    '<div class="row head"><div>#</div><div>VOICE 1</div><div>VOICE 2</div><div>VOICE 3</div><div>VOICE 4</div></div>' +
+    rows.map((r, idx) => `<div class="row${idx === 4 ? ' play' : ''}"><div class="num">${idx.toString(16).toUpperCase().padStart(2, '0')}</div>` +
+      r.map((c) => `<div class="cell">${cell(c)}</div>`).join('') + '</div>').join('');
+</script>
+</body>
+</html>

@@ -23,5 +23,18 @@ export default defineConfig({
   },
   test: {
     include: ['tests/**/*.test.ts'],
+    // The DSP renders whole songs in some tests; instrumented for coverage they run several times slower.
+    testTimeout: 30000,
+    coverage: {
+      provider: 'v8',
+      include: ['src/**/*.ts'],
+      reporter: ['text', 'text-summary', 'html'],
+      // The engine is held to its coverage; the UI (main.ts and friends) is covered by the browser smoke test.
+      thresholds: {
+        'src/dsp/**': { lines: 95, branches: 85 },
+        'src/tracker/**': { lines: 85, branches: 80 },
+        'src/export/{spc,stream,wav,xm,zip}.ts': { lines: 90, branches: 80 },
+      },
+    },
   },
 });

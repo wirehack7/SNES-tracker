@@ -235,6 +235,8 @@ export function encodeXm(song: Song): { data: Uint8Array; warnings: string[] } {
     w.raw(data);
   }
 
+  // Measuring runs the DSP for 300 ticks; instruments with the same envelope registers share one curve.
+  const curves = new Map<string, number[]>();
   for (let i = 0; i < count; i++) {
     const ins = song.instruments[i];
     const sample = song.samples[ins.sample];
@@ -251,7 +253,9 @@ export function encodeXm(song: Song): { data: Uint8Array; warnings: string[] } {
     const pcm = decodeSample(sample);
     const looped = sample.loop >= 0;
     const loopStart = looped ? Math.min(pcm.length, sample.loop * 16) : 0;
-    const curve = measureEnvelope(ins, song.bpm);
+    const key = envelopeRegs(ins).join();
+    const curve = curves.get(key) ?? measureEnvelope(ins, song.bpm);
+    curves.set(key, curve);
     const flat = curve.every((v) => v === curve[0]);
     const env = flat ? [] : simplify(curve);
     // An envelope that ends above zero holds there while the key is down.

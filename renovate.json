@@ -1,0 +1,37 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": ["config:recommended", ":semanticCommitsDisabled"],
+  "schedule": ["before 6am on monday"],
+  "timezone": "Europe/Berlin",
+  "labels": ["dependencies"],
+  "rangeStrategy": "bump",
+  "lockFileMaintenance": { "enabled": true, "schedule": ["before 6am on the first day of the month"] },
+  "packageRules": [
+    {
+      "description": "Playwright and its CI container must stay on the same version",
+      "groupName": "playwright",
+      "matchPackageNames": ["playwright", "mcr.microsoft.com/playwright"]
+    },
+    {
+      "description": "mediabunny and its MP3 encoder are released together",
+      "groupName": "mediabunny",
+      "matchPackageNames": ["mediabunny", "@mediabunny/**"]
+    },
+    {
+      "description": "vitest and its coverage provider are released together",
+      "groupName": "vitest",
+      "matchPackageNames": ["vitest", "@vitest/**"]
+    },
+    {
+      "description": "GitHub Actions updates in one PR",
+      "groupName": "github actions",
+      "matchManagers": ["github-actions"],
+      "matchPackageNames": ["!mcr.microsoft.com/playwright"]
+    },
+    {
+      "description": "Minor and patch updates merge themselves once CI is green",
+      "matchUpdateTypes": ["minor", "patch", "pin", "digest", "lockFileMaintenance"],
+      "automerge": true
+    }
+  ]
+}
