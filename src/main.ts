@@ -4,6 +4,7 @@ import { DSP_RATE, VOICE_COUNT } from './dsp/dsp';
 import { demoSong } from './tracker/demo';
 import { RenderOptions, encodeWav, renderSong, renderStems } from './export/wav';
 import { buildSpc } from './export/spc';
+import { readSpc } from './export/spcimport';
 import { encodeXm, measureEnvelope } from './export/xm';
 import { unzip, zip } from './export/zip';
 import { MidiInput, MidiStatus, midiToNote } from './input/midi';
@@ -1546,7 +1547,7 @@ function renderSamplePanel() {
       <button type="button" class="btn primary" id="s-import" ${song.samples.length >= SAMPLE_COUNT ? 'disabled' : ''}>${t('smpl.import')}</button>
       <select id="s-rate" class="btn" aria-label="${t('smpl.importRate')}" title="${t('smpl.importRate')}">${[32000, 16000, 11025, 8000].map((r) => `<option value="${r}" ${r === importRate ? 'selected' : ''}>${num(r / 1000, r % 1000 ? 3 : 0)} kHz</option>`).join('')}</select>
     </div>
-    <input type="file" id="s-file" accept="audio/*,.wav,.mp3,.ogg,.flac" multiple class="visually-hidden">
+    <input type="file" id="s-file" accept="audio/*,.wav,.mp3,.ogg,.flac,.spc" multiple class="visually-hidden">
     <p class="hint">${t('smpl.importHint')}</p>
     ${
       s
@@ -1633,6 +1634,18 @@ function renderSamplePanel() {
     input.value = '';
     for (const file of files) {
       try {
+        if (/\.spc$/i.test(file.name)) {
+          // The samples of the SPC, appended to this song's.
+          const { song: source } = readSpc(new Uint8Array(await file.arrayBuffer()));
+          let added = 0;
+          for (const sample of source.samples) {
+            if (!addSample(sample)) break;
+            added++;
+          }
+          track('sample-import', { spc: added });
+          if (added < source.samples.length) break;
+          continue;
+        }
         const { channels, rate } = await decodeAudioFile(file);
         const sample = sampleFromAudio(file.name.replace(/\.[^.]*$/, '').slice(0, 24), channels, rate, importRate);
         if (!addSample(sample)) break;
@@ -1944,7 +1957,7 @@ function renderFilePanel() {
       <button type="button" class="btn" id="f-save">${t('file.save')}</button>
       <button type="button" class="btn" id="f-backup">${t('file.backup')}</button>
     </div>
-    <input type="file" id="f-input" accept=".json,.zip,application/json,application/zip" multiple class="visually-hidden">
+    <input type="file" id="f-input" accept=".json,.zip,.spc,application/json,application/zip" multiple class="visually-hidden">
     <p class="hint">${t('file.autosave')}</p>
     <h2>${t('export.title')}</h2>
     <div class="form">${slider('x-loops', t('export.loops'), 1, 1, 4)}</div>
@@ -2269,6 +2282,8 @@ async function importFiles(files: File[]) {
   if (!library) return;
   const songs: Song[] = [];
   const failed: string[] = [];
+  // Songs made from the samples of a foreign SPC, with their sample count.
+  const spcSamples = new Map<Song, number>();
   for (const file of files) {
     try {
       if (/\.zip$/i.test(file.name)) {
@@ -2278,6 +2293,10 @@ async function importFiles(files: File[]) {
           const text = typeof entry.data === 'string' ? entry.data : dec.decode(entry.data);
           songs.push(parseSong(JSON.parse(text)));
         }
+      } else if (/\.spc$/i.test(file.name)) {
+        const spc = readSpc(new Uint8Array(await file.arrayBuffer()), file.name.replace(/\.[^.]*$/, ''));
+        songs.push(spc.song);
+        if (!spc.embedded) spcSamples.set(spc.song, spc.samples);
       } else {
         songs.push(parseSong(JSON.parse(await file.text())));
       }
@@ -2295,7 +2314,8 @@ async function importFiles(files: File[]) {
     for (const s of songs) metas.push(await library.save(s));
     if (single) {
       loadSong(songs[0], metas[0].id);
-      toast(t('file.loaded', { title: songs[0].title }));
+      const count = spcSamples.get(songs[0]);
+      toast(count === undefined ? t('file.loaded', { title: songs[0].title }) : t('file.spcSamples', { title: songs[0].title, count }));
     } else if (!failed.length) {
       toast(t('lib.imported', { count: songs.length }));
     }

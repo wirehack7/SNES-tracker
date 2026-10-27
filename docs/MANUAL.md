@@ -209,7 +209,8 @@ directory has room for.
   decode. The audio is mixed to mono, resampled to the chosen rate and encoded
   to BRR. The rate select is the biggest lever you have on memory: 32 kHz
   sounds best, 16 kHz uses half the space and is what most SNES games used for
-  anything but drums and leads.
+  anything but drums and leads. An **SPC** file adds the samples found in its
+  sample directory (see [SPC files](#spc-files)).
 - **Loop**: BRR loops at a block boundary. Switch the loop on and set the start
   with the slider, or click into the waveform.
 - **Rate** is the frequency at which `C-4` plays the sample. **Tune** shifts it
@@ -296,7 +297,7 @@ The FILE tab has the buttons **New**, **Save**, **Save as…**, **Load demo**,
   **♫** takes the instruments, samples and echo settings of another song
   without touching your notes.
 - **Download (.json)** writes a single song file, **Back up library (.zip)**
-  writes all of them. **Import…** takes both back.
+  writes all of them. **Import…** takes both back, and SPC files too.
 - The library lives in this browser on this device. Back it up.
 
 ### Install as an app and use offline
@@ -322,6 +323,21 @@ The **SPC** export captures the DSP register writes of a real playback and
 plays them back from a small hand-written SPC700 driver, so what you hear in
 the browser is what the file plays. It says how much room the song data took
 and how much is left.
+
+### SPC files
+
+An SPC file is a snapshot of the sound chip's memory with the game's own sound
+driver in it, so the notes of a song from a game cannot be turned back into
+patterns. What **Import…** does with an SPC:
+
+- An SPC exported from this tracker carries the song after the SPC data, so it
+  opens again exactly as it was exported.
+- From any other SPC the samples in the sample directory become a new song: one
+  instrument per sample, with the envelope of a voice that was playing it and
+  the echo settings, and an empty pattern. **♫** in the library moves them
+  into another song, and **Import audio…** in the SAMPLE tab adds them to the
+  current one. Short loops are tuned as one cycle to `C-4`; other samples play
+  at 32 kHz on `C-4`, so adjust **Rate** or **Tune** by ear.
 
 The **XM** export decodes the samples to 16 bits, measures each instrument's
 envelope on the emulated DSP and writes it as an XM volume envelope. What XM

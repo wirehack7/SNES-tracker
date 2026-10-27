@@ -6,13 +6,15 @@
  * Audio RAM: driver at $0200, sample directory at $0400, samples from
  * $0500 (see tracker/aram.ts), the stream after them, the echo buffer at the
  * top. The driver runs timer 0 at 8 kHz and replays the stream with the
- * tracker's tick timing.
+ * tracker's tick timing. The song itself follows the SPC data, so the
+ * tracker can open the file again (see export/spcimport.ts).
  */
 import { DSP_RATE, EDL, ESA, FLG } from '../dsp/dsp';
 import { DRIVER_ADDR, layoutAram } from '../tracker/aram';
 import { Song } from '../tracker/song';
 import { SAMPLES_PER_UNIT } from '../tracker/player';
 import { captureStream, encodeStream } from './stream';
+import { songChunk } from './spcimport';
 
 /** Zero page variables of the driver. */
 export const ZP_PTR = 0x00;
@@ -151,8 +153,13 @@ export function buildSpc(song: Song, opts: { date?: Date } = {}): SpcResult {
   regs[EDL] = song.echo.delay;
   const units = captured.ticks.reduce((s, t) => s + t.units, 0);
   const seconds = (units * SAMPLES_PER_UNIT) / DSP_RATE;
+  const spc = spcFile(ram, regs, DRIVER_ADDR, { title: song.title, author: song.author, seconds, date: opts.date });
+  const chunk = songChunk(song);
+  const data = new Uint8Array(spc.length + chunk.length);
+  data.set(spc);
+  data.set(chunk, spc.length);
   return {
-    data: spcFile(ram, regs, DRIVER_ADDR, { title: song.title, author: song.author, seconds, date: opts.date }),
+    data,
     streamBytes: stream.data.length,
     free: layout.echoStart - end,
     seconds,

@@ -28,6 +28,7 @@ and the SPC export ships them with a small SPC700 driver.
   the library, automatic working-copy backup
 - Exports: SPC (with its own SPC700 driver), WAV, MP3, MP4 video with scopes and the scrolling pattern, XM, and
   per-voice stems
+- SPC import: the tracker's own SPC files open as the song again, other SPC files give their samples
 - Super Famicom colours with the ABXY accents, light and dark mode, colour-coded pattern columns
 - Responsive: desktop with side lists, tablet two-column, phone with views and an on-screen keypad
 - On-screen piano (mouse, touch, glissando) and Web MIDI input from any connected keyboard
@@ -41,7 +42,9 @@ player makes per tick, and `src/export/spc.ts` lays out audio RAM — driver at 
 `$0400`, samples from `$0500`, the stream after them and the echo buffer at the top — and writes the SPC v0.30
 file with its ID666 tags. The driver runs timer 0 at 8 kHz and replays the stream with the tracker's timing, so
 an SPC player reproduces what the browser plays. The tests run that driver on a small SPC700 interpreter and
-compare its DSP writes and their timing with the capture.
+compare its DSP writes and their timing with the capture. After the SPC data the file carries the song as JSON
+(a `STRK` chunk at `$10200`, which players skip), so `src/export/spcimport.ts` can open it again; from other SPC
+files it takes the BRR samples out of the sample directory.
 
 Stream format used by the driver:
 

@@ -63,7 +63,7 @@ describe('SPC file', () => {
   const spc = buildSpc(demoSong(), { date: new Date(Date.UTC(2026, 0, 2)) });
 
   it('has the header, the ID666 tags and the right size', () => {
-    expect(spc.data).toHaveLength(0x10200);
+    expect(spc.data.length).toBeGreaterThan(0x10200); // the song chunk follows the SPC data
     expect(text(spc.data, 0, 33)).toBe('SNES-SPC700 Sound File Data v0.30');
     expect(spc.data[0x23]).toBe(26); // has ID666 text tags
     expect(spc.data[0x24]).toBe(30); // version minor

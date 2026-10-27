@@ -122,7 +122,7 @@ export const de: Translation = {
   'smpl.import': 'Audio importieren…',
   'smpl.importRate': 'Samplerate für importiertes Audio',
   'smpl.importHint':
-    'WAV, MP3, OGG oder alles, was der Browser abspielen kann. Das Audio wird zu Mono gemischt, umgerechnet und als BRR kodiert (9 Bytes pro 16 Samples). Niedrigere Raten brauchen weniger Audio-RAM. Höchstens 96.000 Samples (3 s bei 32 kHz, 6 s bei 16 kHz).',
+    'WAV, MP3, OGG oder alles, was der Browser abspielen kann, oder eine SPC-Datei für ihre Samples. Das Audio wird zu Mono gemischt, umgerechnet und als BRR kodiert (9 Bytes pro 16 Samples). Niedrigere Raten brauchen weniger Audio-RAM. Höchstens 96.000 Samples (3 s bei 32 kHz, 6 s bei 16 kHz).',
   'smpl.importError': 'Import fehlgeschlagen: {error}',
   'smpl.added': 'Sample {n} hinzugefügt: {name}',
   'smpl.full': 'Alle {max} Sample-Plätze sind belegt',
@@ -220,6 +220,7 @@ export const de: Translation = {
     'Importieren nimmt Song-Dateien (.snes.json) und Bibliothek-Sicherungen (.zip). Deine Arbeit wird außerdem nach jeder Änderung im Browser gehalten, ein Neuladen verliert also nichts, auch vor dem Speichern.',
   'file.loaded': '„{title}“ geladen',
   'file.loadError': 'Datei konnte nicht geladen werden: {error}',
+  'file.spcSamples': '„{title}“: {count} Samples aus der SPC übernommen (ihre Noten lassen sich nicht auslesen)',
   'lib.title': 'BIBLIOTHEK ({count})',
   'lib.untitled': 'Ohne Titel',
   'lib.loading': 'Bibliothek wird geöffnet…',

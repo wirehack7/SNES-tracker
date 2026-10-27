@@ -147,7 +147,7 @@ export const en = {
   'smpl.import': 'Import audio…',
   'smpl.importRate': 'Sample rate for imported audio',
   'smpl.importHint':
-    'WAV, MP3, OGG or anything the browser can play. The audio is mixed to mono, resampled and encoded to BRR (9 bytes per 16 samples). Lower rates use less audio RAM. At most 96,000 samples (3 s at 32 kHz, 6 s at 16 kHz).',
+    'WAV, MP3, OGG or anything the browser can play, or an SPC file for its samples. The audio is mixed to mono, resampled and encoded to BRR (9 bytes per 16 samples). Lower rates use less audio RAM. At most 96,000 samples (3 s at 32 kHz, 6 s at 16 kHz).',
   'smpl.importError': 'Could not import: {error}',
   'smpl.added': 'Sample {n} added: {name}',
   'smpl.full': 'All {max} sample slots are in use',
@@ -247,6 +247,7 @@ export const en = {
     'Import takes song files (.snes.json) and library backups (.zip). Your work is also kept in the browser after every change, so a reload loses nothing even before you save.',
   'file.loaded': 'Loaded “{title}”',
   'file.loadError': 'Could not load file: {error}',
+  'file.spcSamples': '“{title}”: {count} samples taken from the SPC (its notes cannot be read back)',
   'lib.title': 'LIBRARY ({count})',
   'lib.untitled': 'Untitled',
   'lib.loading': 'Opening the library…',

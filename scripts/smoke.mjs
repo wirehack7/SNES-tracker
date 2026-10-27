@@ -518,7 +518,7 @@ async function download(page, id, timeout = 20000) {
 const SPC_ID = 'SNES-SPC700 Sound File Data v0.30';
 const exports = [
   ['f-save', /\.snes\.json$/, (b) => typeof JSON.parse(b.toString('utf8')).patterns === 'object'],
-  ['x-spc', /\.spc$/, (b) => b.subarray(0, 33).toString('latin1') === SPC_ID && b.length === 0x10200],
+  ['x-spc', /\.spc$/, (b) => b.subarray(0, 33).toString('latin1') === SPC_ID && b.subarray(0x10200, 0x10204).toString('latin1') === 'STRK'],
   ['x-wav', /\.wav$/, (b) => b.subarray(0, 4).toString('latin1') === 'RIFF' && b.subarray(8, 12).toString('latin1') === 'WAVE' && b.length > 10000],
   // An MP3 starts with an ID3 tag or a frame sync.
   ['x-mp3', /\.mp3$/, (b) => (b.subarray(0, 3).toString('latin1') === 'ID3' || (b[0] === 0xff && (b[1] & 0xe0) === 0xe0)) && b.length > 20000],
@@ -633,6 +633,21 @@ await check('audio imports as a sample, the synths add samples, and they go into
     await page.locator('.tabs [data-tab="file"]').click();
     const spc = await download(page, 'x-spc', 120000);
     assert(spc.bytes.includes(Buffer.from(kick.brr, 'base64')), 'the SPC does not hold the imported sample');
+    // The SPC opens again as the song; without the song chunk (a foreign SPC) its samples can be imported.
+    const saved = JSON.parse(await storedSong(page));
+    const foreign = Buffer.from(spc.bytes.subarray(0, 0x10200));
+    foreign[0x10100 + 0x5d] = 0x04; // DIR, which the driver sets when it runs
+    page.once('dialog', (d) => d.accept());
+    await page.locator('#f-input').setInputFiles({ name: 'again.spc', mimeType: 'application/octet-stream', buffer: spc.bytes });
+    await page.waitForFunction((n) => JSON.parse(localStorage.getItem('snes-tracker.song') ?? '{}').samples?.length === n, saved.samples.length).catch(() => {});
+    song = JSON.parse(await storedSong(page));
+    assert(song.samples.length === saved.samples.length && song.title === saved.title, 'the SPC does not open as the song');
+    await page.locator('.tabs [data-tab="smpl"]').click();
+    const room = 63 - song.samples.length;
+    await page.setInputFiles('#s-file', { name: 'game.spc', mimeType: 'application/octet-stream', buffer: foreign });
+    await page.waitForFunction((n) => JSON.parse(localStorage.getItem('snes-tracker.song') ?? '{}').samples?.length > n, song.samples.length).catch(() => {});
+    const grown = JSON.parse(await storedSong(page)).samples.length - song.samples.length;
+    assert(grown > 0 && grown <= room, `${grown} samples taken from a foreign SPC`);
     assert(errors.length === 0, `errors: ${errors.join(' | ')}`);
   } finally {
     await context.close();
