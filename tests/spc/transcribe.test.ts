@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { DIR } from '../../src/dsp/dsp';
-import { buildSpc } from '../../src/export/spc';
+import { buildSpc, spcFile } from '../../src/export/spc';
 import { SPC_SIZE } from '../../src/export/spcimport';
 import { SpcCapture, SpcNote, captureSpc, fitGrid, importSpc, rowIndexer, rowLength, songFromCapture, tempoFor, volumePan } from '../../src/spc/transcribe';
 import { FX } from '../../src/tracker/player';
@@ -115,6 +115,23 @@ describe('SPC transcription', () => {
     expect(result.notes).toBe(0);
     expect(result.samples).toBeGreaterThan(5);
     expect(progress.at(-1)).toBe(1);
+  });
+
+  it('runs the DSP along only for a driver that reads its envelope or output, with the same timing', async () => {
+    // loop: mov $F2,#reg / mov a,$F3 / mov $F2,#KON / mov $F3,#1 / wait: mov a,$FD / beq wait / bra loop
+    const driver = (reg: number) => {
+      const ram = new Uint8Array(0x10000);
+      ram.set([0x8f, reg, 0xf2, 0xe4, 0xf3, 0x8f, 0x4c, 0xf2, 0x8f, 0x01, 0xf3, 0xe4, 0xfd, 0xf0, 0xfc, 0x2f, 0xef], 0x200);
+      ram[0xf1] = 1; // timer 0 every 256 × 128 cycles: a key-on every 1024 samples
+      return spcFile(ram, new Uint8Array(128), 0x200, { title: '', author: '', seconds: 1 });
+    };
+    const reads: number[] = [];
+    const fast = await captureSpc(driver(0x00), { seconds: 1 });
+    const withDsp = await captureSpc(driver(0x08), { seconds: 1, onProgress: (p) => reads.push(p) }); // ENVX of voice 0
+    expect(fast.notes.length).toBe(32); // one at the start and one per timer count
+    expect(withDsp.notes.length).toBe(fast.notes.length);
+    withDsp.notes.forEach((n, i) => expect(Math.abs(n.time - fast.notes[i].time)).toBeLessThanOrEqual(16));
+    expect(reads.length).toBeGreaterThan(0);
   });
 
   it('opens the tracker’s own SPC as the song without running it', async () => {

@@ -47,7 +47,8 @@ file with its ID666 tags. The driver runs timer 0 at 8 kHz and replays the strea
 an SPC player reproduces what the browser plays. The tests run that driver on a small SPC700 interpreter and
 compare its DSP writes and their timing with the capture. After the SPC data the file carries the song as JSON
 (a `STRK` chunk at `$10200`, which players skip), so `src/export/spcimport.ts` can open it again; from other SPC
-files `src/spc/transcribe.ts` makes patterns: it runs the file's own driver on the emulated SPC700, records every
+files `src/spc/transcribe.ts` makes patterns: it runs the file's own driver on the emulated SPC700 (without the
+DSP unless the driver reads its envelope or output, and skipping the cycles it spends waiting for a timer), records every
 key-on (with the voice's sample, pitch, volume and envelope), key-off and volume change, fits a row grid to the
 note timing (per 20-second stretch, counted from note to note so the driver's drift never adds up) and writes the
 notes with the BRR samples they use.
