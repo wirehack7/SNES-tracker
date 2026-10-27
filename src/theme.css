@@ -1,0 +1,125 @@
+/* Colour tokens shared by the tracker and the manual page: Super Nintendo grey and purple, ABXY colours. */
+:root {
+  color-scheme: light;
+  --bg: #cfccd6;
+  --surface: #e6e4ec;
+  --surface-2: #d3d0dc;
+  --line: #b9b5c4;
+  --ink: #25222e;
+  --ink-soft: #615c70;
+  --accent: #5b4a9e;
+  --accent-hi: #7563bd;
+  --accent-ink: #f6f4ff;
+  --navy: #3c3480;
+  --pill: #8e8a9c;
+  --pill-ink: #f5f3fa;
+  --field: #f7f6fa;
+  --focus: #5b4a9e;
+  /* Button colours of the Super Famicom pad */
+  --btn-a: #d6312b;
+  --btn-b: #e8a321;
+  --btn-x: #2f5fc4;
+  --btn-y: #2f9e4f;
+
+  --pat-bg: #f4f3f7;
+  --pat-beat: #eae8f0;
+  --pat-bar: #dedbe7;
+  --pat-cursor-row: #e1dcf3;
+  --pat-play: #5b4a9e;
+  --pat-play-ink: #f6f4ff;
+  --c-num: #8e8a9c;
+  --c-note: #2f3f9e;
+  --c-off: #8e8a9c;
+  --c-inst: #a23a8c;
+  --c-vol: #2b7a3f;
+  --c-fx: #b4570f;
+  --c-param: #7a4a12;
+  --c-empty: #c5c1cf;
+
+  --scope-bg: #22202b;
+  --scope-ink: #9ee6a8;
+  --scope-dim: #4d6a55;
+
+  --mono: ui-monospace, 'SFMono-Regular', Menlo, Consolas, 'Liberation Mono', monospace;
+  --sans: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    color-scheme: dark;
+    --bg: #18171d;
+    --surface: #23212b;
+    --surface-2: #2f2c39;
+    --line: #3a3746;
+    --ink: #ebe8f3;
+    --ink-soft: #a29db3;
+    --accent: #8f7de0;
+    --accent-hi: #a594f0;
+    --accent-ink: #15121f;
+    --navy: #b4aaff;
+    --pill: #4c4859;
+    --pill-ink: #ebe8f3;
+    --field: #1b1a21;
+    --focus: #b4aaff;
+    --btn-a: #e5534b;
+    --btn-b: #f0b43c;
+    --btn-x: #5b86e0;
+    --btn-y: #4cbc6c;
+    --pat-bg: #16151b;
+    --pat-beat: #1e1c25;
+    --pat-bar: #26232f;
+    --pat-cursor-row: #2f2943;
+    --pat-play: #8f7de0;
+    --pat-play-ink: #15121f;
+    --c-num: #6f6a80;
+    --c-note: #a9b6ff;
+    --c-off: #7c778a;
+    --c-inst: #f08ad8;
+    --c-vol: #8fd48a;
+    --c-fx: #ffb547;
+    --c-param: #e2a25a;
+    --c-empty: #393644;
+    --scope-bg: #0f0e14;
+    --scope-ink: #9ee6a8;
+    --scope-dim: #33473a;
+  }
+}
+
+:root[data-theme='dark'] {
+  color-scheme: dark;
+  --bg: #18171d;
+  --surface: #23212b;
+  --surface-2: #2f2c39;
+  --line: #3a3746;
+  --ink: #ebe8f3;
+  --ink-soft: #a29db3;
+  --accent: #8f7de0;
+  --accent-hi: #a594f0;
+  --accent-ink: #15121f;
+  --navy: #b4aaff;
+  --pill: #4c4859;
+  --pill-ink: #ebe8f3;
+  --field: #1b1a21;
+  --focus: #b4aaff;
+  --btn-a: #e5534b;
+  --btn-b: #f0b43c;
+  --btn-x: #5b86e0;
+  --btn-y: #4cbc6c;
+  --pat-bg: #16151b;
+  --pat-beat: #1e1c25;
+  --pat-bar: #26232f;
+  --pat-cursor-row: #2f2943;
+  --pat-play: #8f7de0;
+  --pat-play-ink: #15121f;
+  --c-num: #6f6a80;
+  --c-note: #a9b6ff;
+  --c-off: #7c778a;
+  --c-inst: #f08ad8;
+  --c-vol: #8fd48a;
+  --c-fx: #ffb547;
+  --c-param: #e2a25a;
+  --c-empty: #393644;
+  --scope-bg: #0f0e14;
+  --scope-ink: #9ee6a8;
+  --scope-dim: #33473a;
+}
