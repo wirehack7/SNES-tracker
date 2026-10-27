@@ -2,6 +2,7 @@ import { DSP_RATE, Dsp, VOICE_COUNT } from '../dsp/dsp';
 import { layoutAram, loadAram } from '../tracker/aram';
 import { Player, SAMPLES_PER_UNIT } from '../tracker/player';
 import { Song } from '../tracker/song';
+import { Apu } from '../spc/apu';
 
 /**
  * DSP + player, clocked together: the player ticks every `units` timer
@@ -12,6 +13,8 @@ import { Song } from '../tracker/song';
 export class Engine {
   readonly dsp: Dsp;
   readonly player: Player;
+  /** An SPC file playing on the emulated APU instead of the song. */
+  private apu: Apu | null = null;
   private untilTick = 0;
   /** DSP samples not yet consumed by the resampler: the last 4 for interpolation. */
   private hist = new Float32Array(8);
@@ -37,6 +40,10 @@ export class Engine {
 
   /** New song data. Samples are reloaded when they or the echo size changed. */
   setSong(song: Song) {
+    if (this.apu) {
+      this.player.setSong(song);
+      return;
+    }
     const old = this.player.song;
     const reload = old.samples !== song.samples || old.echo.delay !== song.echo.delay || JSON.stringify(old.samples) !== JSON.stringify(song.samples);
     this.player.setSong(song);
@@ -46,18 +53,44 @@ export class Engine {
     } else this.player.applyGlobals(this.dsp);
   }
 
+  get playingSpc() {
+    return this.apu !== null;
+  }
+
+  /** Plays an SPC file: its RAM and DSP state with its own driver on the SPC700. */
+  playSpc(spc: Uint8Array) {
+    this.player.stop(this.dsp);
+    this.apu ??= new Apu(this.dsp);
+    this.apu.load(spc);
+  }
+
+  /** Back to the song: samples and DSP state as the player left them. */
+  stopSpc() {
+    if (!this.apu) return;
+    this.apu = null;
+    this.dsp.reset();
+    this.loadSamples(this.player.song);
+    this.player.init(this.dsp);
+  }
+
   play(order = 0, row = 0, loopPattern = false) {
+    this.stopSpc();
     this.player.loopPattern = loopPattern;
     this.player.start(this.dsp, order, row);
     this.untilTick = 0;
   }
 
   stop() {
+    this.stopSpc();
     this.player.stop(this.dsp);
   }
 
   /** Run the DSP (and the player) for `n` samples at 32 kHz; output lands in dsp.out. */
   private runDsp(n: number) {
+    if (this.apu) {
+      this.apu.run(n);
+      return;
+    }
     while (n > 0) {
       if (this.untilTick <= 0) {
         this.player.tick(this.dsp);

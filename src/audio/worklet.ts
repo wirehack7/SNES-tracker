@@ -14,6 +14,7 @@ export type WorkletMessage =
   | { type: 'song'; song: Song }
   | { type: 'play'; order: number; row: number; loopPattern: boolean }
   | { type: 'stop' }
+  | { type: 'spc'; data: Uint8Array }
   | { type: 'preview'; channel: number; note: number; instrument: number }
   | { type: 'release'; channel: number }
   | { type: 'sample'; index: number; note: number }
@@ -55,13 +56,18 @@ class TrackerProcessor extends AudioWorkletProcessor {
       case 'stop':
         engine.stop();
         break;
+      case 'spc':
+        engine.playSpc(msg.data);
+        break;
       case 'preview':
+        if (engine.playingSpc) engine.stopSpc();
         engine.player.preview(engine.dsp, msg.channel, msg.note, msg.instrument);
         break;
       case 'release':
         engine.player.releasePreview(engine.dsp, msg.channel);
         break;
       case 'sample':
+        if (engine.playingSpc) engine.stopSpc();
         engine.player.previewSample(engine.dsp, 7, msg.index, msg.note);
         break;
       case 'mute':

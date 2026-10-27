@@ -4,6 +4,7 @@ import { DSP_RATE, VOICE_COUNT } from './dsp/dsp';
 import { demoSong } from './tracker/demo';
 import { RenderOptions, encodeWav, renderSong, renderStems } from './export/wav';
 import { buildSpc } from './export/spc';
+import { isSpc, readSpc, spcTags } from './export/spcimport';
 import { encodeXm, measureEnvelope } from './export/xm';
 import { unzip, zip } from './export/zip';
 import { MidiInput, MidiStatus, midiToNote } from './input/midi';
@@ -667,8 +668,33 @@ function clearCurrent() {
   editCell((c) => clearField(c, cursor.field));
 }
 
+/** Title of the SPC file playing on the emulated APU, or null. */
+let spcPlaying: string | null = null;
+
+/** Plays an SPC file with its own driver on the emulated SPC700 (the song stops). */
+function playSpc(data: Uint8Array, title: string) {
+  void ensureAudio();
+  audio.send({ type: 'spc', data });
+  playing = true;
+  spcPlaying = title;
+  $('play-led').classList.add('on');
+  $('play-song').setAttribute('aria-pressed', 'false');
+  $('play-pattern').setAttribute('aria-pressed', 'false');
+  renderSpcState();
+  track('spc-play');
+}
+
+function renderSpcState() {
+  const stop = document.getElementById('f-spc-stop');
+  if (!stop) return;
+  stop.hidden = !spcPlaying;
+  $('spc-status').textContent = spcPlaying ? t('spc.playing', { title: spcPlaying }) : t('spc.hint');
+}
+
 function togglePlay(loopPattern = false) {
   void ensureAudio();
+  spcPlaying = null;
+  renderSpcState();
   if (playing) {
     playing = false;
     audio.send({ type: 'stop' });
@@ -1546,7 +1572,7 @@ function renderSamplePanel() {
       <button type="button" class="btn primary" id="s-import" ${song.samples.length >= SAMPLE_COUNT ? 'disabled' : ''}>${t('smpl.import')}</button>
       <select id="s-rate" class="btn" aria-label="${t('smpl.importRate')}" title="${t('smpl.importRate')}">${[32000, 16000, 11025, 8000].map((r) => `<option value="${r}" ${r === importRate ? 'selected' : ''}>${num(r / 1000, r % 1000 ? 3 : 0)} kHz</option>`).join('')}</select>
     </div>
-    <input type="file" id="s-file" accept="audio/*,.wav,.mp3,.ogg,.flac" multiple class="visually-hidden">
+    <input type="file" id="s-file" accept="audio/*,.wav,.mp3,.ogg,.flac,.spc" multiple class="visually-hidden">
     <p class="hint">${t('smpl.importHint')}</p>
     ${
       s
@@ -1633,6 +1659,18 @@ function renderSamplePanel() {
     input.value = '';
     for (const file of files) {
       try {
+        if (/\.spc$/i.test(file.name)) {
+          // The samples of the SPC, appended to this song's.
+          const { song: source } = readSpc(new Uint8Array(await file.arrayBuffer()));
+          let added = 0;
+          for (const sample of source.samples) {
+            if (!addSample(sample)) break;
+            added++;
+          }
+          track('sample-import', { spc: added });
+          if (added < source.samples.length) break;
+          continue;
+        }
         const { channels, rate } = await decodeAudioFile(file);
         const sample = sampleFromAudio(file.name.replace(/\.[^.]*$/, '').slice(0, 24), channels, rate, importRate);
         if (!addSample(sample)) break;
@@ -1944,8 +1982,15 @@ function renderFilePanel() {
       <button type="button" class="btn" id="f-save">${t('file.save')}</button>
       <button type="button" class="btn" id="f-backup">${t('file.backup')}</button>
     </div>
-    <input type="file" id="f-input" accept=".json,.zip,application/json,application/zip" multiple class="visually-hidden">
+    <input type="file" id="f-input" accept=".json,.zip,.spc,application/json,application/zip" multiple class="visually-hidden">
     <p class="hint">${t('file.autosave')}</p>
+    <h2>${t('spc.title')}</h2>
+    <div class="btn-row">
+      <button type="button" class="btn" id="f-spc">${t('spc.play')}</button>
+      <button type="button" class="btn" id="f-spc-stop" ${spcPlaying ? '' : 'hidden'}>${t('spc.stop')}</button>
+    </div>
+    <input type="file" id="f-spc-input" accept=".spc" class="visually-hidden">
+    <p class="hint" id="spc-status">${spcPlaying ? t('spc.playing', { title: escapeHtml(spcPlaying) }) : t('spc.hint')}</p>
     <h2>${t('export.title')}</h2>
     <div class="form">${slider('x-loops', t('export.loops'), 1, 1, 4)}</div>
     <div class="btn-row">
@@ -1986,6 +2031,21 @@ function renderFilePanel() {
     const id = button?.closest<HTMLElement>('[data-id]')?.dataset.id;
     if (button && id) void libraryAction(button.dataset.act!, id);
   });
+  const spcInput = $<HTMLInputElement>('f-spc-input');
+  $('f-spc').addEventListener('click', () => spcInput.click());
+  spcInput.addEventListener('change', async () => {
+    const file = spcInput.files?.[0];
+    spcInput.value = '';
+    if (!file) return;
+    const data = new Uint8Array(await file.arrayBuffer());
+    if (!isSpc(data)) {
+      toast(t('file.loadError', { error: `${file.name}: Not an SPC file` }));
+      return;
+    }
+    const tags = spcTags(data);
+    playSpc(data, tags.title || tags.game || file.name.replace(/\.[^.]*$/, ''));
+  });
+  $('f-spc-stop').addEventListener('click', () => playing && togglePlay());
   $('f-open').addEventListener('click', () => input.click());
   input.addEventListener('change', async () => {
     const files = [...(input.files ?? [])];
@@ -2269,6 +2329,8 @@ async function importFiles(files: File[]) {
   if (!library) return;
   const songs: Song[] = [];
   const failed: string[] = [];
+  // Songs made from the samples of a foreign SPC, with their sample count.
+  const spcSamples = new Map<Song, number>();
   for (const file of files) {
     try {
       if (/\.zip$/i.test(file.name)) {
@@ -2278,6 +2340,10 @@ async function importFiles(files: File[]) {
           const text = typeof entry.data === 'string' ? entry.data : dec.decode(entry.data);
           songs.push(parseSong(JSON.parse(text)));
         }
+      } else if (/\.spc$/i.test(file.name)) {
+        const spc = readSpc(new Uint8Array(await file.arrayBuffer()), file.name.replace(/\.[^.]*$/, ''));
+        songs.push(spc.song);
+        if (!spc.embedded) spcSamples.set(spc.song, spc.samples);
       } else {
         songs.push(parseSong(JSON.parse(await file.text())));
       }
@@ -2295,7 +2361,8 @@ async function importFiles(files: File[]) {
     for (const s of songs) metas.push(await library.save(s));
     if (single) {
       loadSong(songs[0], metas[0].id);
-      toast(t('file.loaded', { title: songs[0].title }));
+      const count = spcSamples.get(songs[0]);
+      toast(count === undefined ? t('file.loaded', { title: songs[0].title }) : t('file.spcSamples', { title: songs[0].title, count }));
     } else if (!failed.length) {
       toast(t('lib.imported', { count: songs.length }));
     }
