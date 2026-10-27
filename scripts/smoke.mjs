@@ -694,6 +694,21 @@ await check('About dialog opens and its keys stay out of the tracker', async () 
       assert(/^Version \d+\.\d+\.\d+/.test(await page.locator('#about-version').textContent()), 'no version shown');
       assert((await page.locator('#about-repo').getAttribute('href')).includes('github.com/wirehack7/SNES-tracker'), 'no repo link');
       assert((await page.locator('#about-manual').getAttribute('href')) === './manual.html', 'no manual link');
+      // The title screen animates: frames keep coming and the canvas is not blank.
+      const screenEl = page.locator('#about-screen');
+      const frames = async () => Number(await screenEl.getAttribute('data-frame'));
+      const before = await frames();
+      await page.waitForTimeout(400);
+      assert((await frames()) > before + 3, `${screen.name}: the title screen does not animate`);
+      const colours = await screenEl.evaluate((c) => {
+        const d = c.getContext('2d').getImageData(0, 0, c.width, c.height).data;
+        const seen = new Set();
+        for (let i = 0; i < d.length; i += 4 * 37) seen.add((d[i] << 16) | (d[i + 1] << 8) | d[i + 2]);
+        return seen.size;
+      });
+      assert(colours > 20, `${screen.name}: the title screen is blank (${colours} colours)`);
+      const sbox = await screenEl.boundingBox();
+      assert(Math.abs(sbox.width / sbox.height - 1.6) < 0.05, `${screen.name}: the title screen is distorted`);
       const box = await dialog.boundingBox();
       const width = page.viewportSize().width;
       assert(box.x >= 0 && box.x + box.width <= width + 1, `${screen.name}: the dialog does not fit (${box.width}px)`);
@@ -711,10 +726,28 @@ await check('About dialog opens and its keys stay out of the tracker', async () 
       else await page.keyboard.press('Escape');
       await dialog.waitFor({ state: 'hidden' });
       assert((await page.locator('#rec').getAttribute('aria-pressed')) === rec, 'closing the dialog toggled record mode');
+      const stopped = await frames();
+      await page.waitForTimeout(300);
+      assert((await frames()) === stopped, 'the title screen keeps drawing after the dialog closed');
       assert(errors.length === 0, `errors: ${errors.join(' | ')}`);
     } finally {
       await context.close();
     }
+  }
+});
+
+await check('About title screen holds still with reduced motion', async () => {
+  const { context, page, errors } = await open({ ...desktop, reducedMotion: 'reduce' });
+  try {
+    await page.locator('.tabs [data-tab="help"]').click();
+    await page.locator('#about-open').click();
+    await page.locator('dialog#about').waitFor({ state: 'visible' });
+    await page.waitForTimeout(400);
+    const frames = Number(await page.locator('#about-screen').getAttribute('data-frame'));
+    assert(frames === 1, `drew ${frames} frames instead of one still frame`);
+    assert(errors.length === 0, `errors: ${errors.join(' | ')}`);
+  } finally {
+    await context.close();
   }
 });
 
