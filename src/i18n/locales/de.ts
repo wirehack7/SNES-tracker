@@ -354,4 +354,12 @@ export const de: Translation = {
     'SNES TRACKER V{version}  *  8 STIMMEN  *  BRR-SAMPLES  *  ADSR & GAIN  *  ECHO MIT FIR-FILTER  *  EXPORT ALS SPC, WAV, MP3, MP4 & XM  *  VON WIREHACK7  *  GRÜSSE AN ALLE TRACKER-FANS  ♥',
   'about.still': 'VON WIREHACK7',
   'about.close': 'Schließen',
+  'ask.cancel': 'Abbrechen',
+  'ask.reset': 'Zurücksetzen',
+  'ask.delete': 'Löschen',
+  'ask.clear': 'Leeren',
+  'ask.discard': 'Verwerfen',
+  'ask.replace': 'Ersetzen',
+  'ask.save': 'Speichern',
+  'ask.rename': 'Umbenennen',
 };

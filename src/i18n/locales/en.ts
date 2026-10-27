@@ -381,4 +381,13 @@ export const en = {
     'SNES TRACKER V{version}  *  8 VOICES  *  BRR SAMPLES  *  ADSR & GAIN  *  ECHO WITH FIR FILTER  *  SPC, WAV, MP3, MP4 & XM EXPORT  *  MADE BY WIREHACK7  *  GREETINGS TO ALL TRACKER FANS  ♥',
   'about.still': 'MADE BY WIREHACK7',
   'about.close': 'Close',
+  'ask.ok': 'OK',
+  'ask.cancel': 'Cancel',
+  'ask.reset': 'Reset',
+  'ask.delete': 'Delete',
+  'ask.clear': 'Clear',
+  'ask.discard': 'Discard',
+  'ask.replace': 'Replace',
+  'ask.save': 'Save',
+  'ask.rename': 'Rename',
 } as const;
