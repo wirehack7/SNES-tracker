@@ -84,6 +84,7 @@ paths, so it runs at a domain root and under a sub-path alike.
 | `src/ui/`, `src/main.ts` | pattern editor, piano, scopes, the tracker UI |
 | `src/i18n/` | interface translations |
 | `docs/MANUAL.md` | the manual, rendered into `manual.html` at build time |
+| `docs/images/` | the manual's screenshots; `npm run build && node scripts/manual-images.mjs` renders them again |
 
 ### Analytics
 

@@ -93,62 +93,111 @@ button {
   box-shadow: 0 0 6px #ff3b3b;
 }
 
+/* The transport sits in a recessed tray like the button well of the Super Famicom pad. */
 .transport {
   display: flex;
-  gap: 6px;
+  align-items: center;
+  gap: 7px;
+  padding: 3px 5px;
+  border-radius: 999px;
+  background: linear-gradient(color-mix(in srgb, var(--surface-2) 82%, #000), var(--surface-2));
+  box-shadow:
+    inset 0 2px 3px rgb(0 0 0 / 0.3),
+    inset 0 -1px 0 rgb(255 255 255 / 0.25),
+    0 1px 0 rgb(255 255 255 / 0.45);
 }
 
-.round-btn {
+/* Matte, slightly domed face buttons with an engraved glyph; they sink in while held or latched. */
+.pad-btn {
+  --face: #4a4655;
+  --glyph: rgb(255 255 255 / 0.9);
+  display: grid;
+  place-items: center;
   width: 34px;
   height: 34px;
-  border-radius: 50%;
+  padding: 0;
   border: 0;
-  background: radial-gradient(circle at 35% 30%, var(--accent-hi), var(--accent) 65%);
-  color: var(--accent-ink);
-  font-size: 13px;
-  box-shadow: 0 2px 0 rgb(0 0 0 / 0.25);
+  border-radius: 50%;
+  color: var(--glyph);
+  background:
+    radial-gradient(circle at 50% 22%, rgb(255 255 255 / 0.3), transparent 58%),
+    linear-gradient(color-mix(in srgb, var(--face) 90%, #fff), color-mix(in srgb, var(--face) 86%, #000));
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.35),
+    inset 0 -2px 3px rgb(0 0 0 / 0.25),
+    0 0 0 1px color-mix(in srgb, var(--face) 55%, #000),
+    0 2px 0 1px color-mix(in srgb, var(--face) 45%, #000),
+    0 4px 5px rgb(0 0 0 / 0.3);
+  transition:
+    transform 70ms ease-out,
+    box-shadow 70ms ease-out,
+    filter 120ms;
   touch-action: manipulation;
 }
 
-.round-btn.dark {
-  background: var(--pill);
-  color: var(--pill-ink);
+.pad-btn svg {
+  width: 18px;
+  height: 18px;
+  fill: currentColor;
+  filter: drop-shadow(0 -1px 0 rgb(0 0 0 / 0.35)) drop-shadow(0 1px 0 rgb(255 255 255 / 0.2));
+  transition:
+    color 120ms,
+    filter 120ms;
 }
 
-/* Play and loop in the colours of the pad's Y and X buttons. */
-#play-song {
-  background: radial-gradient(circle at 35% 30%, color-mix(in srgb, var(--btn-y) 70%, white), var(--btn-y) 65%);
+/* Play and loop in the colours of the pad's Y and X buttons, stop in the grey rubber of Select/Start. */
+.pad-btn.play {
+  --face: var(--btn-y);
+}
+
+.pad-btn.loop {
+  --face: var(--btn-x);
+}
+
+/* Record off: grey rubber with a dark red lamp. On: the red A button with the lamp lit. */
+.pad-btn.rec {
+  --glyph: #7d2a2a;
+}
+
+.pad-btn.rec[aria-pressed='true'] {
+  --face: var(--btn-a);
+  --glyph: #fff;
+}
+
+@media (hover: hover) {
+  .pad-btn:hover {
+    filter: brightness(1.07);
+  }
+}
+
+.pad-btn:active,
+.pad-btn[aria-pressed='true'] {
+  transform: translateY(2px);
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.25),
+    inset 0 -1px 2px rgb(0 0 0 / 0.25),
+    0 0 0 1px color-mix(in srgb, var(--face) 55%, #000),
+    0 0 0 1px color-mix(in srgb, var(--face) 45%, #000),
+    0 1px 2px rgb(0 0 0 / 0.3);
+}
+
+.pad-btn[aria-pressed='true'] {
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.25),
+    inset 0 -1px 2px rgb(0 0 0 / 0.25),
+    0 0 0 1px color-mix(in srgb, var(--face) 55%, #000),
+    0 1px 2px rgb(0 0 0 / 0.3),
+    0 0 10px 1px color-mix(in srgb, var(--face) 65%, transparent);
+}
+
+.pad-btn[aria-pressed='true'] svg {
   color: #fff;
-}
-
-#play-pattern {
-  background: radial-gradient(circle at 35% 30%, color-mix(in srgb, var(--btn-x) 70%, white), var(--btn-x) 65%);
-  color: #fff;
-}
-
-.round-btn.rec {
-  background: var(--pill);
-  color: var(--pill-ink);
-  font-size: 15px;
-}
-
-.round-btn.rec[aria-pressed='true'] {
-  background: radial-gradient(circle at 35% 30%, #ff6b6b, #d61f1f 65%);
-  color: #fff;
-  box-shadow: 0 0 8px rgb(214 31 31 / 0.6);
+  filter: drop-shadow(0 0 2px rgb(255 255 255 / 0.9)) drop-shadow(0 0 5px color-mix(in srgb, var(--face) 40%, #fff));
 }
 
 #app[data-rec='off'] .cell .cursor {
   background: var(--pill);
   color: var(--pill-ink) !important;
-}
-
-.round-btn[aria-pressed='true'] {
-  box-shadow: 0 0 0 3px var(--surface), 0 0 0 5px var(--accent);
-}
-
-.round-btn:active {
-  transform: translateY(1px);
 }
 
 .fields {
@@ -1108,9 +1157,19 @@ a.btn {
     font-size: 15px;
   }
 
-  .round-btn {
+  .transport {
+    gap: 4px;
+    padding: 3px;
+  }
+
+  .pad-btn {
     width: 30px;
     height: 30px;
+  }
+
+  .pad-btn svg {
+    width: 16px;
+    height: 16px;
   }
 
   .piano {
