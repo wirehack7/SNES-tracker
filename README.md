@@ -85,6 +85,28 @@ paths, so it runs at a domain root and under a sub-path alike.
 | `src/i18n/` | interface translations |
 | `docs/MANUAL.md` | the manual, rendered into `manual.html` at build time |
 
+### Analytics
+
+The repository contains no analytics. A deployment can add its own snippet at build time: the Pages workflow
+passes the repository variable `TRACKING_CODE` (raw HTML, e.g. the `<script>` tags of your analytics service;
+Settings > Secrets and variables > Actions > Variables) to the build, which puts it unchanged at the end of
+`<head>` of every page (`src/analytics/plugin.ts`). Without it, as in local, dev and CI builds and forks, nothing
+is added.
+
+The tracker reports user actions as `snes-tracker:track` window events with `{ name, data }` as their detail
+(`src/analytics/track.ts`): `play` (`mode`), `stop`, `export` (`format`), `import`, `sample-import`, `song-new`,
+`song-demo`, `library` (`action`), `theme`, `language`, `piano`, `midi`, `about`, `pwa-install` and
+`pwa-launch`. To forward them, add a listener to the snippet, for example for Umami:
+
+```html
+<script>
+  addEventListener('snes-tracker:track', (e) => window.umami?.track(e.detail.name, e.detail.data));
+</script>
+```
+
+The service worker only handles requests inside the site's own scope, so external analytics scripts are never
+cached for offline use.
+
 ## Licence
 
 MIT.
