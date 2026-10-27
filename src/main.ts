@@ -5,6 +5,7 @@ import { demoSong } from './tracker/demo';
 import { RenderOptions, encodeWav, renderSong, renderStems } from './export/wav';
 import { buildSpc } from './export/spc';
 import { isSpc, readSpc, spcTags } from './export/spcimport';
+import { importSpc } from './spc/transcribe';
 import { encodeXm, measureEnvelope } from './export/xm';
 import { unzip, zip } from './export/zip';
 import { MidiInput, MidiStatus, midiToNote } from './input/midi';
@@ -2333,7 +2334,7 @@ async function importFiles(files: File[]) {
   const songs: Song[] = [];
   const failed: string[] = [];
   // Songs made from the samples of a foreign SPC, with their sample count.
-  const spcSamples = new Map<Song, number>();
+  const spcSamples = new Map<Song, { count: number; notes: number }>();
   for (const file of files) {
     try {
       if (/\.zip$/i.test(file.name)) {
@@ -2344,9 +2345,12 @@ async function importFiles(files: File[]) {
           songs.push(parseSong(JSON.parse(text)));
         }
       } else if (/\.spc$/i.test(file.name)) {
-        const spc = readSpc(new Uint8Array(await file.arrayBuffer()), file.name.replace(/\.[^.]*$/, ''));
+        // Other SPCs: the driver runs on the emulated SPC700 and its notes are written down.
+        const spc = await importSpc(new Uint8Array(await file.arrayBuffer()), file.name.replace(/\.[^.]*$/, ''), {
+          onProgress: (done) => toast(t('file.spcProgress', { name: file.name, percent: Math.round(done * 100) })),
+        });
         songs.push(spc.song);
-        if (!spc.embedded) spcSamples.set(spc.song, spc.samples);
+        if (!spc.embedded) spcSamples.set(spc.song, { count: spc.samples, notes: spc.notes });
       } else {
         songs.push(parseSong(JSON.parse(await file.text())));
       }
@@ -2364,8 +2368,15 @@ async function importFiles(files: File[]) {
     for (const s of songs) metas.push(await library.save(s));
     if (single) {
       loadSong(songs[0], metas[0].id);
-      const count = spcSamples.get(songs[0]);
-      toast(count === undefined ? t('file.loaded', { title: songs[0].title }) : t('file.spcSamples', { title: songs[0].title, count }));
+      const spc = spcSamples.get(songs[0]);
+      const title = songs[0].title;
+      toast(
+        !spc
+          ? t('file.loaded', { title })
+          : spc.notes
+            ? t('file.spcNotes', { title, notes: spc.notes, count: spc.count })
+            : t('file.spcSamples', { title, count: spc.count }),
+      );
     } else if (!failed.length) {
       toast(t('lib.imported', { count: songs.length }));
     }

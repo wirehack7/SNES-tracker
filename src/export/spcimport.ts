@@ -1,12 +1,12 @@
 /**
  * SPC import. An SPC file is a snapshot of audio RAM and the DSP registers
- * with whatever sound driver the game used, so its music cannot be turned
- * back into patterns in general. Two things can be recovered:
+ * with whatever sound driver the game used.
  *
  * - SPC files from this tracker carry the song itself in a chunk after the
  *   SPC data (see `SONG_CHUNK`), and load back exactly.
  * - From any other SPC the samples are taken out of the sample directory
  *   (DIR) as BRR data, with the envelopes and echo the voices were using.
+ *   Its notes come from running the driver: see spc/transcribe.ts.
  */
 import { BRR_BLOCK_BYTES, BRR_BLOCK_SAMPLES, BRR_END, BRR_LOOP, decodeBrr } from '../dsp/brr';
 import { DIR, EDL, EFB, EVOLL, EVOLR, FIR, V_ADSR1, V_ADSR2, V_GAIN, V_SRCN, VOICE_COUNT } from '../dsp/dsp';
@@ -61,7 +61,7 @@ export function spcTags(data: Uint8Array): { title: string; game: string; artist
   return { title: latin1(data, 0x2e, 32), game: latin1(data, 0x4e, 32), artist: latin1(data, binary ? 0xb0 : 0xb1, 32) };
 }
 
-function embeddedSong(data: Uint8Array): Song | null {
+export function embeddedSong(data: Uint8Array): Song | null {
   if (data.length < SPC_SIZE + 8 || latin1(data, SPC_SIZE, 4) !== SONG_CHUNK) return null;
   const len = new DataView(data.buffer, data.byteOffset + SPC_SIZE + 4, 4).getUint32(0, true);
   if (SPC_SIZE + 8 + len > data.length) return null;
@@ -110,6 +110,15 @@ function dirSample(ram: Uint8Array, start: number, loop: number, srcn: number): 
   return sample;
 }
 
+/** The sample of one directory entry, or null when it is not one. */
+export function entrySample(ram: Uint8Array, dirPage: number, srcn: number): Sample | null {
+  const dir = dirPage << 8;
+  const e = (dir + srcn * 4) & 0xffff;
+  const start = ram[e] | (ram[(e + 1) & 0xffff] << 8);
+  const loop = ram[(e + 2) & 0xffff] | (ram[(e + 3) & 0xffff] << 8);
+  return dirSample(ram, start, loop, srcn);
+}
+
 /** The samples in the sample directory, at most `SAMPLE_COUNT`, each BRR block range once. */
 export function directorySamples(ram: Uint8Array, dirPage: number): DirSample[] {
   const dir = dirPage << 8;
@@ -136,18 +145,41 @@ export function directorySamples(ram: Uint8Array, dirPage: number): DirSample[] 
 
 const s8 = (v: number) => (v << 24) >> 24;
 
-/** An instrument for a sample, with the envelope of a voice that plays it. */
-function voiceInstrument(i: number, sample: number, name: string, regs: Uint8Array | null): Instrument {
-  const ins = defaultInstrument(i, sample, name);
-  if (!regs) return ins;
-  const [adsr1, adsr2, gain] = [regs[V_ADSR1], regs[V_ADSR2], regs[V_GAIN]];
+/** Sets an instrument's envelope from a voice's ADSR1, ADSR2 and GAIN registers. */
+export function setEnvelope(ins: Instrument, adsr1: number, adsr2: number, gain: number) {
   if (adsr1 & 0x80) {
+    ins.envelope = 'adsr';
     ins.adsr = { attack: adsr1 & 15, decay: (adsr1 >> 4) & 7, sustain: adsr2 >> 5, sustainRate: adsr2 & 31 };
   } else {
     ins.envelope = 'gain';
     ins.gain = gain;
   }
+}
+
+/** An instrument for a sample, with the envelope of a voice that plays it. */
+function voiceInstrument(i: number, sample: number, name: string, regs: Uint8Array | null): Instrument {
+  const ins = defaultInstrument(i, sample, name);
+  if (regs) setEnvelope(ins, regs[V_ADSR1], regs[V_ADSR2], regs[V_GAIN]);
   return ins;
+}
+
+/** Song length from the ID666 tag in seconds (text or binary form), or 0. */
+export function spcSeconds(data: Uint8Array): number {
+  if (data[0x23] !== 26) return 0;
+  const text = latin1(data, 0xa9, 3);
+  if (/^\d+$/.test(text)) return Number(text);
+  return data[0xa9] | (data[0xaa] << 8) | (data[0xab] << 16);
+}
+
+/** The echo settings in a DSP register image. */
+export function echoOf(dsp: Uint8Array): Song['echo'] {
+  return {
+    delay: dsp[EDL] & 15,
+    feedback: s8(dsp[EFB]),
+    volumeL: s8(dsp[EVOLL]),
+    volumeR: s8(dsp[EVOLR]),
+    fir: Array.from({ length: 8 }, (_, i) => s8(dsp[FIR + i * 0x10])),
+  };
 }
 
 /** A song with the samples of a foreign SPC: one instrument per sample, the echo setup, no notes. */
@@ -170,13 +202,7 @@ export function songFromSpc(data: Uint8Array, fallbackTitle = 'SPC'): SpcImport 
   song.instruments = Array.from({ length: INSTRUMENT_COUNT }, (_, i) =>
     i < found.length ? voiceInstrument(i, i, found[i].sample.name, voiceOf(found[i].srcn)) : defaultInstrument(i),
   );
-  song.echo = {
-    delay: dsp[EDL] & 15,
-    feedback: s8(dsp[EFB]),
-    volumeL: s8(dsp[EVOLL]),
-    volumeR: s8(dsp[EVOLR]),
-    fir: Array.from({ length: 8 }, (_, i) => s8(dsp[FIR + i * 0x10])),
-  };
+  song.echo = echoOf(dsp);
   return { song, embedded: false, samples: found.length };
 }
 

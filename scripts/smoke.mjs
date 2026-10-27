@@ -656,6 +656,22 @@ await check('audio imports as a sample, the synths add samples, and they go into
     await page.waitForTimeout(500);
     await page.locator('#f-spc-stop').click();
     await page.locator('#f-spc-stop').waitFor({ state: 'hidden' });
+    // A foreign SPC of the demo: its driver runs and the notes come back as patterns.
+    page.once('dialog', (d) => d.accept());
+    await page.locator('#f-demo').click();
+    const demoSpc = await download(page, 'x-spc', 120000);
+    const game = Buffer.from(demoSpc.bytes.subarray(0, 0x10200));
+    game[0x10100 + 0x5d] = 0x04;
+    page.once('dialog', (d) => d.accept());
+    await page.locator('#f-input').setInputFiles({ name: 'game.spc', mimeType: 'application/octet-stream', buffer: game });
+    const notes = () =>
+      page.evaluate(() => {
+        const s = JSON.parse(localStorage.getItem('snes-tracker.song') ?? '{}');
+        return (s.patterns ?? []).flatMap((p) => p.rows.flat()).filter((c) => c.note >= 0).length;
+      });
+    await page.waitForFunction(() => /notes|Noten/.test(document.getElementById('toast')?.textContent ?? ''), null, { timeout: 60000 });
+    await page.waitForTimeout(600);
+    assert((await notes()) > 150, `${await notes()} notes transcribed from a foreign SPC`);
     assert(errors.length === 0, `errors: ${errors.join(' | ')}`);
   } finally {
     await context.close();
