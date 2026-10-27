@@ -100,9 +100,9 @@ A note without an instrument keeps the one the voice played before.
 
 ### Record mode
 
-The red ● button (or `Esc`) switches record mode. With it **off** the keys and
-the piano only play; with it **on** they also write into the pattern. The
-setting is remembered.
+The ● button (or `Esc`) switches record mode. With it **off** (grey) the keys
+and the piano only play; with it **on** (lit red) they also write into the
+pattern. The setting is remembered.
 
 ### Entering values
 

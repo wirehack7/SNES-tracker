@@ -93,62 +93,130 @@ button {
   box-shadow: 0 0 6px #ff3b3b;
 }
 
+/* 16-bit look: the transport is a dark console panel with blocky, bevelled keys and pixel-art glyphs.
+   Corners are cut by one "pixel" (2px) instead of rounded; all shadows are hard. */
 .transport {
+  --px: 2px;
   display: flex;
+  align-items: center;
   gap: 6px;
+  padding: 4px;
+  background: #3b3748;
+  box-shadow:
+    inset 0 0 0 var(--px) #1d1a26,
+    inset var(--px) var(--px) 0 var(--px) #25222f,
+    inset calc(-1 * var(--px)) calc(-1 * var(--px)) 0 var(--px) #57526a;
+  clip-path: polygon(
+    var(--px) 0,
+    calc(100% - var(--px)) 0,
+    100% var(--px),
+    100% calc(100% - var(--px)),
+    calc(100% - var(--px)) 100%,
+    var(--px) 100%,
+    0 calc(100% - var(--px)),
+    0 var(--px)
+  );
 }
 
-.round-btn {
-  width: 34px;
+.pad-btn {
+  --px: 2px;
+  --face: #8e8a9c;
+  --glyph: #fff;
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 42px;
   height: 34px;
-  border-radius: 50%;
+  padding: 0;
   border: 0;
-  background: radial-gradient(circle at 35% 30%, var(--accent-hi), var(--accent) 65%);
-  color: var(--accent-ink);
-  font-size: 13px;
-  box-shadow: 0 2px 0 rgb(0 0 0 / 0.25);
+  border-radius: 0;
+  color: var(--glyph);
+  background: var(--face);
+  /* Outline, then light top-left and dark bottom-right bevel. */
+  box-shadow:
+    inset 0 0 0 var(--px) #15121c,
+    inset calc(2 * var(--px)) calc(2 * var(--px)) 0 0 color-mix(in srgb, var(--face) 55%, #fff),
+    inset calc(-2 * var(--px)) calc(-2 * var(--px)) 0 0 color-mix(in srgb, var(--face) 60%, #000);
+  clip-path: polygon(
+    var(--px) 0,
+    calc(100% - var(--px)) 0,
+    100% var(--px),
+    100% calc(100% - var(--px)),
+    calc(100% - var(--px)) 100%,
+    var(--px) 100%,
+    0 calc(100% - var(--px)),
+    0 var(--px)
+  );
   touch-action: manipulation;
 }
 
-.round-btn.dark {
-  background: var(--pill);
-  color: var(--pill-ink);
+.pad-btn svg {
+  width: 24px;
+  height: 24px;
+  fill: currentColor;
+  /* A hard one-pixel drop shadow, as on 16-bit menu text. */
+  filter: drop-shadow(var(--px) var(--px) 0 color-mix(in srgb, var(--face) 45%, #000));
 }
 
-/* Play and loop in the colours of the pad's Y and X buttons. */
-#play-song {
-  background: radial-gradient(circle at 35% 30%, color-mix(in srgb, var(--btn-y) 70%, white), var(--btn-y) 65%);
-  color: #fff;
+/* Play and loop in the colours of the pad's Y and X buttons, stop in Select/Start grey. */
+.pad-btn.play {
+  --face: var(--btn-y);
 }
 
-#play-pattern {
-  background: radial-gradient(circle at 35% 30%, color-mix(in srgb, var(--btn-x) 70%, white), var(--btn-x) 65%);
-  color: #fff;
+.pad-btn.loop {
+  --face: var(--btn-x);
 }
 
-.round-btn.rec {
-  background: var(--pill);
-  color: var(--pill-ink);
-  font-size: 15px;
+.pad-btn.stop {
+  --face: #6c6879;
 }
 
-.round-btn.rec[aria-pressed='true'] {
-  background: radial-gradient(circle at 35% 30%, #ff6b6b, #d61f1f 65%);
-  color: #fff;
-  box-shadow: 0 0 8px rgb(214 31 31 / 0.6);
+/* Record off: grey key with a dark red lamp. On: the red A button. */
+.pad-btn.rec {
+  --glyph: #8a1f1f;
+}
+
+.pad-btn.rec[aria-pressed='true'] {
+  --face: var(--btn-a);
+  --glyph: #fff;
+}
+
+@media (hover: hover) {
+  .pad-btn:hover {
+    filter: brightness(1.1);
+  }
+}
+
+/* Held or latched: the bevel flips and the glyph moves one pixel down-right. */
+.pad-btn:active,
+.pad-btn[aria-pressed='true'] {
+  box-shadow:
+    inset 0 0 0 var(--px) #15121c,
+    inset calc(2 * var(--px)) calc(2 * var(--px)) 0 0 color-mix(in srgb, var(--face) 60%, #000),
+    inset calc(-1 * var(--px)) calc(-1 * var(--px)) 0 var(--px) color-mix(in srgb, var(--face) 75%, #fff);
+}
+
+.pad-btn:active svg,
+.pad-btn[aria-pressed='true'] svg {
+  transform: translate(var(--px), var(--px));
+  filter: none;
+}
+
+/* Latched keys light a square lamp in the corner. */
+.pad-btn[aria-pressed='true']::after {
+  content: '';
+  position: absolute;
+  top: calc(2 * var(--px));
+  right: calc(2 * var(--px) + 1px);
+  width: 4px;
+  height: 4px;
+  background: #fff6a8;
+  box-shadow: 0 0 0 1px #15121c;
 }
 
 #app[data-rec='off'] .cell .cursor {
   background: var(--pill);
   color: var(--pill-ink) !important;
-}
-
-.round-btn[aria-pressed='true'] {
-  box-shadow: 0 0 0 3px var(--surface), 0 0 0 5px var(--accent);
-}
-
-.round-btn:active {
-  transform: translateY(1px);
 }
 
 .fields {
@@ -1108,9 +1176,20 @@ a.btn {
     font-size: 15px;
   }
 
-  .round-btn {
-    width: 30px;
-    height: 30px;
+  .transport {
+    gap: 4px;
+    padding: 3px;
+  }
+
+  .pad-btn {
+    --px: 1.5px;
+    width: 32px;
+    height: 28px;
+  }
+
+  .pad-btn svg {
+    width: 18px;
+    height: 18px;
   }
 
   .piano {
