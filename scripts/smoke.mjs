@@ -20,6 +20,8 @@
  * - audio imports as a BRR sample, the waveform and drum synths add samples, and they go into the SPC;
  * - the theme button cycles auto, light and dark;
  * - the About dialog shows version and links and its keys stay out of the tracker;
+ * - questions (confirm, rename) open in the app's own dialog, never a native one: it fits a phone,
+ *   keeps keys out of the tracker, Enter confirms, Escape cancels and the focus returns;
  * - a German browser gets the German UI, still without sideways scrolling;
  * - the manual page loads its sections, contents list and images on desktop and phone;
  * - the scope traces stay centred while playing (Chromium) and the piano keys keep their size at every octave;
@@ -105,6 +107,11 @@ async function open(screen, { locale = 'en-US', path = '', ready = '#pattern .pr
   const unload = /Navigated away from page/;
   page.on('pageerror', (e) => unload.test(e.message) || errors.push(e.message));
   page.on('console', (m) => m.type() === 'error' && !unload.test(m.text()) && errors.push(m.text()));
+  // The app asks in its own dialogs; a native alert, confirm or prompt is a bug.
+  page.on('dialog', (d) => {
+    errors.push(`native ${d.type()} dialog: ${d.message()}`);
+    void d.dismiss();
+  });
   await page.goto(base + path, { waitUntil: 'load' });
   await page.waitForSelector(ready);
   return { context, page, errors };
@@ -137,6 +144,23 @@ function assert(condition, message) {
 async function press(page, locator, touch) {
   if (touch) await locator.tap();
   else await locator.click();
+}
+
+/**
+ * Answers the app's own question dialog: types `text` into its field when given, then confirms
+ * with Enter, or cancels with Escape when `cancel` is set. Resolves once the dialog is gone.
+ */
+async function answer(page, { text, cancel = false } = {}) {
+  const dialog = page.locator('dialog.ask[open]');
+  await dialog.waitFor({ state: 'visible' });
+  if (text !== undefined) await dialog.locator('.ask-input').fill(text);
+  await page.keyboard.press(cancel ? 'Escape' : 'Enter');
+  await dialog.waitFor({ state: 'detached' });
+}
+
+/** True when the song has unsaved changes, so opening another one asks first. */
+async function unsaved(page) {
+  return (await page.locator('.tabs [data-tab="file"].dirty').count()) > 0;
 }
 
 /** The song as the app keeps it in localStorage (saved 400 ms after a change). */
@@ -449,7 +473,6 @@ await check('song library saves, renames, duplicates, deletes and backs up songs
     const titles = () => page.$$eval('#lib-list .lib-title', (els) => els.map((e) => e.textContent).sort());
     const state = () => page.locator('#f-state').getAttribute('data-state');
     const row = (title) => rows().filter({ has: page.locator('.lib-title', { hasText: new RegExp(`^${title}$`) }) });
-    const answer = (text) => page.once('dialog', (d) => d.accept(text));
 
     await page.locator('.tabs [data-tab="file"]').click();
     await page.waitForSelector('#lib-list .hint, #lib-list .lib-row');
@@ -468,18 +491,22 @@ await check('song library saves, renames, duplicates, deletes and backs up songs
     await page.locator('.tabs [data-tab="file"]').click();
     assert((await titles()).join() === 'Smoke song', `library holds ${(await titles()).join(', ')}`);
 
-    answer('Second');
+    // Escape cancels Save as; Enter takes the typed title.
     await page.locator('#f-saveas').click();
+    await answer(page, { cancel: true });
+    assert((await rows().count()) === 1, 'a cancelled Save as still saved a copy');
+    await page.locator('#f-saveas').click();
+    await answer(page, { text: 'Second' });
     await rows().nth(1).waitFor();
     assert((await row('Second').getAttribute('aria-current')) === 'true', 'Save as did not switch to the copy');
 
-    answer('Renamed');
     await row('Smoke song').locator('[data-act="rename"]').click();
+    await answer(page, { text: 'Renamed' });
     await row('Renamed').waitFor();
     await row('Renamed').locator('[data-act="duplicate"]').click();
     await row('Renamed \\(copy\\)').waitFor();
-    answer();
     await row('Renamed \\(copy\\)').locator('[data-act="delete"]').click();
+    await answer(page);
     await row('Renamed \\(copy\\)').waitFor({ state: 'detached' });
     assert((await titles()).join() === 'Renamed,Second', `library holds ${(await titles()).join(', ')}`);
 
@@ -637,8 +664,9 @@ await check('audio imports as a sample, the synths add samples, and they go into
     const saved = JSON.parse(await storedSong(page));
     const foreign = Buffer.from(spc.bytes.subarray(0, 0x10200));
     foreign[0x10100 + 0x5d] = 0x04; // DIR, which the driver sets when it runs
-    page.once('dialog', (d) => d.accept());
+    const asks = await unsaved(page);
     await page.locator('#f-input').setInputFiles({ name: 'again.spc', mimeType: 'application/octet-stream', buffer: spc.bytes });
+    if (asks) await answer(page);
     await page.waitForFunction((n) => JSON.parse(localStorage.getItem('snes-tracker.song') ?? '{}').samples?.length === n, saved.samples.length).catch(() => {});
     song = JSON.parse(await storedSong(page));
     assert(song.samples.length === saved.samples.length && song.title === saved.title, 'the SPC does not open as the song');
@@ -657,13 +685,15 @@ await check('audio imports as a sample, the synths add samples, and they go into
     await page.locator('#f-spc-stop').click();
     await page.locator('#f-spc-stop').waitFor({ state: 'hidden' });
     // A foreign SPC of the demo: its driver runs and the notes come back as patterns.
-    page.once('dialog', (d) => d.accept());
+    const demoAsks = await unsaved(page);
     await page.locator('#f-demo').click();
+    if (demoAsks) await answer(page);
     const demoSpc = await download(page, 'x-spc', 120000);
     const game = Buffer.from(demoSpc.bytes.subarray(0, 0x10200));
     game[0x10100 + 0x5d] = 0x04;
-    page.once('dialog', (d) => d.accept());
+    const gameAsks = await unsaved(page);
     await page.locator('#f-input').setInputFiles({ name: 'game.spc', mimeType: 'application/octet-stream', buffer: game });
+    if (gameAsks) await answer(page);
     const notes = () =>
       page.evaluate(() => {
         const s = JSON.parse(localStorage.getItem('snes-tracker.song') ?? '{}');
@@ -745,6 +775,57 @@ await check('About dialog opens and its keys stay out of the tracker', async () 
       const stopped = await frames();
       await page.waitForTimeout(300);
       assert((await frames()) === stopped, 'the title screen keeps drawing after the dialog closed');
+      assert(errors.length === 0, `errors: ${errors.join(' | ')}`);
+    } finally {
+      await context.close();
+    }
+  }
+});
+
+await check("questions open in the app's own dialog, which fits, keeps keys out and answers with Enter and Esc", async () => {
+  for (const screen of [desktop, phone]) {
+    const touch = !!screen.hasTouch;
+    const { context, page, errors } = await open(screen);
+    try {
+      const notes = () =>
+        page.evaluate(() => [...document.querySelectorAll('#pattern .prow')].filter((r) => /[A-G][-#]\d/.test(r.textContent)).length);
+      if (touch) await press(page, page.locator('.mobile-nav [data-view="edit"]'), touch);
+      await press(page, page.locator('.tabs [data-tab="song"]'), touch);
+      const before = await notes();
+      assert(before > 0, `${screen.name}: the demo pattern shows no notes`);
+      const rec = await page.locator('#rec').getAttribute('aria-pressed');
+      const dialog = page.locator('dialog.ask[open]');
+      await press(page, page.locator('#p-clear'), touch);
+      await dialog.waitFor({ state: 'visible' });
+      assert(/clear this pattern/.test(await dialog.locator('.ask-msg').textContent()), 'the dialog does not ask the question');
+      const box = await dialog.boundingBox();
+      const width = page.viewportSize().width;
+      assert(box.x >= 0 && box.x + box.width <= width + 1, `${screen.name}: the dialog does not fit (${box.width}px)`);
+      for (const key of await dialog.locator('.key-btn').all()) {
+        const k = await key.boundingBox();
+        assert(k.height >= 40, `${screen.name}: a dialog key is only ${k.height}px high`);
+      }
+      if (shots) await page.screenshot({ path: join(shots, `${engine}-${screen.name}-ask.png`) });
+      if (touch) {
+        await press(page, dialog.locator('.key-btn.cancel'), touch);
+      } else {
+        assert(await dialog.locator('.key-btn.ok').evaluate((b) => b === document.activeElement), 'OK does not have the focus');
+        await page.keyboard.press('Escape');
+      }
+      await dialog.waitFor({ state: 'detached' });
+      assert((await notes()) === before, `${screen.name}: cancelling still cleared the pattern`);
+      assert((await page.locator('#rec').getAttribute('aria-pressed')) === rec, 'Escape in the dialog toggled record mode');
+      if (!touch) {
+        assert(await page.locator('#p-clear').evaluate((b) => b === document.activeElement), 'the focus did not return to the button');
+      }
+      await press(page, page.locator('#p-clear'), touch);
+      await dialog.waitFor({ state: 'visible' });
+      if (touch) await press(page, dialog.locator('.key-btn.ok'), touch);
+      else await page.keyboard.press('Enter');
+      await dialog.waitFor({ state: 'detached' });
+      // The pattern redraws on the next frame.
+      await page.waitForFunction(() => ![...document.querySelectorAll('#pattern .prow')].some((r) => /[A-G][-#]\d/.test(r.textContent))).catch(() => {});
+      assert((await notes()) === 0, `${screen.name}: confirming did not clear the pattern`);
       assert(errors.length === 0, `errors: ${errors.join(' | ')}`);
     } finally {
       await context.close();
