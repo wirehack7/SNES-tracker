@@ -1,7 +1,8 @@
 # Testing
 
 The tracker is tested on two levels. **Unit tests** (Vitest, in Node) check the sound engine, the song model and
-every export against the hardware rules, down to running the exported SPC driver on an SPC700 interpreter.
+every export against the hardware rules, down to running the exported SPC driver on an SPC700 interpreter and on the full SPC700 emulation, whose every
+opcode is checked against a reference suite.
 **Browser smoke tests** (Playwright) load the built site in Chromium, Firefox and WebKit and use it the way a
 person would: on a desktop, a tablet and a phone, with mouse, keyboard and touch. CI runs both on every pull
 request; nothing is deployed unless both pass.
@@ -15,7 +16,7 @@ npm run smoke -- smoke-screenshots --chromium   # browser smoke test of dist/ (a
 
 ## Unit tests
 
-180 tests in 16 files under `tests/`.
+457 tests in 19 files under `tests/`.
 
 | File | Tests | What it proves |
 | --- | ---: | --- |
@@ -28,6 +29,9 @@ npm run smoke -- smoke-screenshots --chromium   # browser smoke test of dist/ (a
 | `tracker/library.test.ts` | 11 | Song library (save, rename, duplicate, delete, search) and the ZIP backup |
 | `tracker/input.test.ts` | 7 | MIDI note mapping and the on-screen piano's layout |
 | `export/spc.test.ts` | 14 | Register stream capture, SPC file layout and ID666 tags, and **the exported driver run on an SPC700 interpreter** (`export/spc700.ts`): its DSP writes and their timing match the capture |
+| `export/spcimport.test.ts` | 7 | SPC import: the tracker's own SPC opens as the same song; from other SPCs the samples in the sample directory, their loops and tuning, voice envelopes and echo; invalid entries skipped; ID666 text and binary tags |
+| `spc/cpu.test.ts` | 258 | **SPC700 opcode coverage: all 256 opcodes**, each against 32 cases of the [SingleStepTests](https://github.com/SingleStepTests/spc700) reference suite (registers, flags, memory and cycle count after one instruction from a random state), and the extra cycles of taken branches |
+| `spc/apu.test.ts` | 12 | The audio unit: IPL ROM boot handshake, state restored from an SPC file, timers 0-2 with dividers and 4-bit counters, the DSP port, control register, 32 cycles per sample, SLEEP/STOP; **the exported SPC played on the emulated SPC700** writes the captured registers in order, and its held voices match the tracker sample for sample; the engine switches between SPC and song |
 | `export/xm.test.ts` | 16 | XM tuning, envelopes measured on the DSP, effect translation and warnings, the file layout, samples that decode back to the BRR audio |
 | `export/wav.test.ts` | 12 | WAV files, offline rendering (loops, sample rates, limits), stems that add up to the mix, the engine, the song format |
 | `ui/scope.test.ts` | 5 | Scope traces taken from the worklet's buffer |
@@ -44,9 +48,10 @@ Measured with V8 over `src/` (`npm run coverage`):
 | --- | ---: | ---: | --- |
 | `src/dsp` — S-DSP, BRR, Gaussian table | 98 % | 89 % | 95 % / 85 % |
 | `src/tracker` — song, player, samples, synths, library | 92 % | 88 % | 85 % / 80 % |
-| `src/export` — SPC, stream, WAV, XM, ZIP | 98 % | 88 % | 90 % / 80 % |
-| `src/audio/engine.ts` | 87 % | 63 % | — |
-| everything in `src/` | 49 % | 42 % | — |
+| `src/export` — SPC, SPC import, stream, WAV, XM, ZIP | 98 % | 88 % | 90 % / 80 % |
+| `src/spc` — SPC700 CPU, audio unit | 99.6 % | 99.6 % | 98 % / 95 % |
+| `src/audio/engine.ts` | 92 % | 67 % | — |
+| everything in `src/` | 56 % | 51 % | — |
 
 The thresholds in `vite.config.ts` fail CI when the engine's coverage drops. The total is lower on purpose: the
 other half of `src/` is the interface (`main.ts`, the audio worklet and its client, the MP3/MP4 encoder in
@@ -79,6 +84,8 @@ measured in timer periods, and the XM samples decoded back bit for bit.
   - The instrument envelope editor works.
 - **Song library:** save, rename, duplicate, delete and back up songs.
 - **Samples:** importing audio and the synths create samples, and those samples end up in the SPC file.
+- **SPC files:** the exported SPC opens again as the song, a foreign SPC adds its samples, and the SPC player
+  plays it on the emulated SPC700 and stops.
 - **Exports:**
   - Each export downloads a valid file: SPC, WAV, MP3, XM, JSON and the stem ZIP.
   - MP4 either downloads, or a clear message appears where WebCodecs are missing.
@@ -98,5 +105,8 @@ workers), so they run in Chromium only, and the script says so.
   a measured value, not one copied from the current output.
 - **A change to the SPC driver** (the hand-assembled bytes in `src/export/spc.ts`): run
   `tests/export/spc.test.ts`. The interpreter in `tests/export/spc700.ts` implements only the opcodes the
-  driver uses, so add any new opcode there.
+  driver uses, so add any new opcode there; `tests/spc/apu.test.ts` also runs the driver on the full SPC700.
+- **The SPC700 core** (`src/spc/cpu.ts`): `tests/spc/cpu.test.ts` must stay green for every opcode. For a deeper
+  check, clone https://github.com/SingleStepTests/spc700 and run `node scripts/spc700-vectors.mjs <clone>/v1 1000`
+  (1000 cases per opcode instead of 32), run the test, then put the committed fixture back with `git checkout`.
 - **A UI change:** add a step to `scripts/smoke.mjs`, and run it in Chromium locally. CI runs Firefox and WebKit.

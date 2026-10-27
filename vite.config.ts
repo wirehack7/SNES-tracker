@@ -33,7 +33,8 @@ export default defineConfig({
       thresholds: {
         'src/dsp/**': { lines: 95, branches: 85 },
         'src/tracker/**': { lines: 85, branches: 80 },
-        'src/export/{spc,stream,wav,xm,zip}.ts': { lines: 90, branches: 80 },
+        'src/export/{spc,spcimport,stream,wav,xm,zip}.ts': { lines: 90, branches: 80 },
+        'src/spc/**': { lines: 98, branches: 95 },
       },
     },
   },

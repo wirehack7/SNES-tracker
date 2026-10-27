@@ -4,7 +4,7 @@ import { DSP_RATE, VOICE_COUNT } from './dsp/dsp';
 import { demoSong } from './tracker/demo';
 import { RenderOptions, encodeWav, renderSong, renderStems } from './export/wav';
 import { buildSpc } from './export/spc';
-import { readSpc } from './export/spcimport';
+import { isSpc, readSpc, spcTags } from './export/spcimport';
 import { encodeXm, measureEnvelope } from './export/xm';
 import { unzip, zip } from './export/zip';
 import { MidiInput, MidiStatus, midiToNote } from './input/midi';
@@ -668,8 +668,33 @@ function clearCurrent() {
   editCell((c) => clearField(c, cursor.field));
 }
 
+/** Title of the SPC file playing on the emulated APU, or null. */
+let spcPlaying: string | null = null;
+
+/** Plays an SPC file with its own driver on the emulated SPC700 (the song stops). */
+function playSpc(data: Uint8Array, title: string) {
+  void ensureAudio();
+  audio.send({ type: 'spc', data });
+  playing = true;
+  spcPlaying = title;
+  $('play-led').classList.add('on');
+  $('play-song').setAttribute('aria-pressed', 'false');
+  $('play-pattern').setAttribute('aria-pressed', 'false');
+  renderSpcState();
+  track('spc-play');
+}
+
+function renderSpcState() {
+  const stop = document.getElementById('f-spc-stop');
+  if (!stop) return;
+  stop.hidden = !spcPlaying;
+  $('spc-status').textContent = spcPlaying ? t('spc.playing', { title: spcPlaying }) : t('spc.hint');
+}
+
 function togglePlay(loopPattern = false) {
   void ensureAudio();
+  spcPlaying = null;
+  renderSpcState();
   if (playing) {
     playing = false;
     audio.send({ type: 'stop' });
@@ -1959,6 +1984,13 @@ function renderFilePanel() {
     </div>
     <input type="file" id="f-input" accept=".json,.zip,.spc,application/json,application/zip" multiple class="visually-hidden">
     <p class="hint">${t('file.autosave')}</p>
+    <h2>${t('spc.title')}</h2>
+    <div class="btn-row">
+      <button type="button" class="btn" id="f-spc">${t('spc.play')}</button>
+      <button type="button" class="btn" id="f-spc-stop" ${spcPlaying ? '' : 'hidden'}>${t('spc.stop')}</button>
+    </div>
+    <input type="file" id="f-spc-input" accept=".spc" class="visually-hidden">
+    <p class="hint" id="spc-status">${spcPlaying ? t('spc.playing', { title: escapeHtml(spcPlaying) }) : t('spc.hint')}</p>
     <h2>${t('export.title')}</h2>
     <div class="form">${slider('x-loops', t('export.loops'), 1, 1, 4)}</div>
     <div class="btn-row">
@@ -1999,6 +2031,21 @@ function renderFilePanel() {
     const id = button?.closest<HTMLElement>('[data-id]')?.dataset.id;
     if (button && id) void libraryAction(button.dataset.act!, id);
   });
+  const spcInput = $<HTMLInputElement>('f-spc-input');
+  $('f-spc').addEventListener('click', () => spcInput.click());
+  spcInput.addEventListener('change', async () => {
+    const file = spcInput.files?.[0];
+    spcInput.value = '';
+    if (!file) return;
+    const data = new Uint8Array(await file.arrayBuffer());
+    if (!isSpc(data)) {
+      toast(t('file.loadError', { error: `${file.name}: Not an SPC file` }));
+      return;
+    }
+    const tags = spcTags(data);
+    playSpc(data, tags.title || tags.game || file.name.replace(/\.[^.]*$/, ''));
+  });
+  $('f-spc-stop').addEventListener('click', () => playing && togglePlay());
   $('f-open').addEventListener('click', () => input.click());
   input.addEventListener('change', async () => {
     const files = [...(input.files ?? [])];

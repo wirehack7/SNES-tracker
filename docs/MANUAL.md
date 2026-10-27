@@ -339,6 +339,11 @@ patterns. What **Import…** does with an SPC:
   current one. Short loops are tuned as one cycle to `C-4`; other samples play
   at 32 kHz on `C-4`, so adjust **Rate** or **Tune** by ear.
 
+**Play SPC…** under **SPC player** plays any SPC file as it is, game rips
+included: the file's memory, DSP registers and its own sound driver run on an
+emulation of the SPC700 (every opcode, the three timers, the I/O ports and the
+boot ROM) next to the S-DSP. **Stop SPC**, or starting the song, ends it.
+
 The **XM** export decodes the samples to 16 bits, measures each instrument's
 envelope on the emulated DSP and writes it as an XM volume envelope. What XM
 has no place for — the echo, the noise generator, pitch modulation, surround —

@@ -648,6 +648,14 @@ await check('audio imports as a sample, the synths add samples, and they go into
     await page.waitForFunction((n) => JSON.parse(localStorage.getItem('snes-tracker.song') ?? '{}').samples?.length > n, song.samples.length).catch(() => {});
     const grown = JSON.parse(await storedSong(page)).samples.length - song.samples.length;
     assert(grown > 0 && grown <= room, `${grown} samples taken from a foreign SPC`);
+    // The SPC player runs the file's own driver on the emulated SPC700.
+    await page.locator('.tabs [data-tab="file"]').click();
+    await page.setInputFiles('#f-spc-input', { name: 'game.spc', mimeType: 'application/octet-stream', buffer: foreign });
+    await page.locator('#f-spc-stop').waitFor({ state: 'visible' });
+    assert(/SPC700/.test(await page.locator('#spc-status').textContent()), 'the SPC player does not say it plays');
+    await page.waitForTimeout(500);
+    await page.locator('#f-spc-stop').click();
+    await page.locator('#f-spc-stop').waitFor({ state: 'hidden' });
     assert(errors.length === 0, `errors: ${errors.join(' | ')}`);
   } finally {
     await context.close();

@@ -29,6 +29,8 @@ and the SPC export ships them with a small SPC700 driver.
 - Exports: SPC (with its own SPC700 driver), WAV, MP3, MP4 video with scopes and the scrolling pattern, XM, and
   per-voice stems
 - SPC import: the tracker's own SPC files open as the song again, other SPC files give their samples
+- SPC player: any SPC file plays with its own driver on a full SPC700 emulation (all 256 opcodes, timers, ports,
+  IPL ROM), checked opcode by opcode against the SingleStepTests reference suite
 - Super Famicom colours with the ABXY accents, light and dark mode, colour-coded pattern columns
 - Responsive: desktop with side lists, tablet two-column, phone with views and an on-screen keypad
 - On-screen piano (mouse, touch, glissando) and Web MIDI input from any connected keyboard
@@ -45,6 +47,11 @@ an SPC player reproduces what the browser plays. The tests run that driver on a 
 compare its DSP writes and their timing with the capture. After the SPC data the file carries the song as JSON
 (a `STRK` chunk at `$10200`, which players skip), so `src/export/spcimport.ts` can open it again; from other SPC
 files it takes the BRR samples out of the sample directory.
+
+`src/spc/cpu.ts` is the SPC700 and `src/spc/apu.ts` the audio unit around it (I/O registers, timers 0-2, IPL
+ROM), so any SPC file plays on the same DSP. `tests/spc/cpu.test.ts` runs every opcode against cases from the
+[SingleStepTests SPC700 suite](https://github.com/SingleStepTests/spc700) (MIT licence; picked by
+`scripts/spc700-vectors.mjs`): registers, flags, memory and cycle counts must all match.
 
 Stream format used by the driver:
 
@@ -83,7 +90,8 @@ paths, so it runs at a domain root and under a sub-path alike.
 | `src/dsp/` | S-DSP emulation, BRR codec, Gaussian table |
 | `src/tracker/` | song model, player and effects, samples, synths, audio RAM layout, library |
 | `src/audio/` | AudioWorklet engine and client |
-| `src/export/` | register stream, SPC, WAV, MP3/MP4, XM, ZIP |
+| `src/export/` | register stream, SPC export and import, WAV, MP3/MP4, XM, ZIP |
+| `src/spc/` | SPC700 CPU and the audio unit (timers, ports, IPL ROM) that plays SPC files |
 | `src/ui/`, `src/main.ts` | pattern editor, piano, scopes, the tracker UI |
 | `src/i18n/` | interface translations |
 | `docs/MANUAL.md` | the manual, rendered into `manual.html` at build time |
