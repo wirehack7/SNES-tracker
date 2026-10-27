@@ -310,10 +310,10 @@ export function rowIndexer(noteTimes: number[], row: number): (time: number) => 
   };
 }
 
-/** Speed and BPM whose rows come closest to `row` samples. */
-export function tempoFor(row: number): { speed: number; bpm: number } {
+/** Speed and BPM whose rows come closest to `row` samples, with a speed that is a multiple of `step`. */
+export function tempoFor(row: number, step = 1): { speed: number; bpm: number } {
   let best = { speed: 6, bpm: 125, error: Infinity };
-  for (let speed = 1; speed <= 31; speed++) {
+  for (let speed = step; speed <= 31; speed += step) {
     for (const bpm of [Math.floor((80000 * speed) / row), Math.ceil((80000 * speed) / row)]) {
       if (bpm < MIN_BPM || bpm > MAX_BPM) continue;
       const error = Math.abs(speed * tickUnits(bpm) * 4 - row) / row + Math.abs(speed - 6) * 1e-4;
@@ -321,6 +321,43 @@ export function tempoFor(row: number): { speed: number; bpm: number } {
     }
   }
   return { speed: best.speed, bpm: best.bpm };
+}
+
+/** Rows are grouped up to this length (200 ms), about a 16th note at slow tempos. */
+const MAX_BEAT_ROW = 6400;
+/** Notes at least this often on a beat make it the row: the rest get a note delay. */
+const ON_BEAT = 0.75;
+/** At most this share of notes may meet another one of their voice in a row (and be dropped). */
+const MAX_CLASH = 0.02;
+
+/**
+ * Rows of a readable length: the grid fits every note, but its rows are
+ * often a fraction of a beat (grace notes, triplets). Groups of `k` grid
+ * steps become one row when most notes start a group; the others keep
+ * their timing with a note delay of `step` ticks per grid step. Returns
+ * k and the grid step of row 0 (`phase`).
+ */
+export function beatRows(fineRows: { row: number; voice: number }[], maxK: number): { k: number; phase: number } {
+  let best = { k: 1, phase: 0 };
+  for (let k = 2; k <= maxK; k++) {
+    for (let phase = 0; phase < k; phase++) {
+      let on = 0;
+      let clash = 0;
+      const seen = new Set<number>();
+      for (const n of fineRows) {
+        const d = n.row - phase;
+        if ((((d % k) + k) % k) === 0) on++;
+        const key = Math.floor(d / k) * 8 + n.voice;
+        if (seen.has(key)) clash++;
+        seen.add(key);
+      }
+      if (on >= ON_BEAT * fineRows.length && clash <= MAX_CLASH * fineRows.length) {
+        best = { k, phase };
+        break;
+      }
+    }
+  }
+  return best;
 }
 
 /** Volume (0..127) and pan (0..255) from a voice's volume registers. */
@@ -416,20 +453,30 @@ export function songFromCapture(capture: SpcCapture, ram: Uint8Array, row = capt
     instruments[i] = ins;
   });
 
-  // Events in time order onto the rows.
-  const rowOf = rowIndexer(capture.notes.map((n) => n.time), row);
+  // Events in time order onto the rows: grid steps, grouped into rows of about a beat.
+  const fineOf = rowIndexer(capture.notes.map((n) => n.time), row);
+  const fine = tempoFor(row);
+  const { k, phase } = beatRows(
+    capture.notes.map((n) => ({ row: fineOf(n.time), voice: n.voice })),
+    Math.min(Math.floor(31 / fine.speed), Math.floor(MAX_BEAT_ROW / row)),
+  );
+  const { speed, bpm } = tempoFor(row * k, k);
+  const ticks = speed / k;
+  // Row 0 holds the first note.
+  const shift = phase ? k - phase : 0;
+  const rowOf = (time: number) => Math.floor((fineOf(time) + shift) / k);
+  const delayOf = (time: number) => ((((fineOf(time) + shift) % k) + k) % k) * ticks;
   const rows = Math.min(MAX_PATTERNS * 64, Math.max(1, rowOf(capture.length) + 1));
   const patterns: Pattern[] = Array.from({ length: Math.ceil(rows / 64) }, () => emptyPattern(64));
-  const cellAt = (time: number, voice: number) => {
-    const r = rowOf(time);
+  const cellAt = (time: number, voice: number, r = rowOf(time)) => {
     if (r < 0 || r >= rows) return null;
     return patterns[r >> 6].rows[r & 63][voice];
   };
+  const lastPan: number[] = Array(CHANNEL_COUNT).fill(128);
   type Ev = { time: number; order: number; apply: () => void };
   const events: Ev[] = [];
   const sounding: boolean[] = Array(CHANNEL_COUNT).fill(false);
   const lastVolume: number[] = Array(CHANNEL_COUNT).fill(-1);
-  let placed = 0;
   for (const n of capture.notes) {
     events.push({
       time: n.time,
@@ -445,14 +492,18 @@ export function songFromCapture(capture: SpcCapture, ram: Uint8Array, row = capt
         cell.note = Math.max(0, Math.min(NOTE_COUNT - 1, Math.round(semi - fine / 128) - transpose));
         cell.instrument = ins;
         cell.volume = volume;
-        if (pan !== 128) {
-          cell.effect = FX.PANNING;
-          cell.param = pan;
-        } else if (cell.effect === FX.PANNING) {
-          cell.effect = EMPTY;
-          cell.param = 0;
+        const delay = delayOf(n.time);
+        cell.effect = delay ? FX.NOTE_DELAY : pan !== 128 ? FX.PANNING : EMPTY;
+        cell.param = delay || (pan !== 128 ? pan : 0);
+        if (delay && pan !== lastPan[n.voice]) {
+          // The panning goes on the row before when that one is free.
+          const before = cellAt(n.time, n.voice, rowOf(n.time) - 1);
+          if (before && before.effect === EMPTY) {
+            before.effect = FX.PANNING;
+            before.param = pan;
+          }
         }
-        placed++;
+        lastPan[n.voice] = pan;
         sounding[n.voice] = true;
         lastVolume[n.voice] = volume;
       },
@@ -466,8 +517,17 @@ export function songFromCapture(capture: SpcCapture, ram: Uint8Array, row = capt
         if (!sounding[o.voice]) return;
         sounding[o.voice] = false;
         const cell = cellAt(o.time, o.voice);
-        // A note in the same row wins over its own key-off.
-        if (cell && cell.note === EMPTY) cell.note = NOTE_OFF;
+        const delay = delayOf(o.time);
+        if (!cell) return;
+        if (cell.note === EMPTY) {
+          cell.note = NOTE_OFF;
+          cell.effect = delay ? FX.NOTE_DELAY : EMPTY;
+          cell.param = delay;
+        } else if (cell.effect === EMPTY && delay) {
+          // A key-off after the note in its own row cuts it there.
+          cell.effect = FX.NOTE_CUT;
+          cell.param = delay;
+        }
       },
     });
   }
@@ -488,9 +548,9 @@ export function songFromCapture(capture: SpcCapture, ram: Uint8Array, row = capt
   }
   events.sort((a, b) => a.time - b.time || a.order - b.order);
   for (const e of events) e.apply();
+  const placed = patterns.reduce((sum, p) => sum + p.rows.reduce((a, r) => a + r.filter((c) => c.note >= 0).length, 0), 0);
 
   const song = createSong();
-  const { speed, bpm } = tempoFor(row);
   song.bpm = bpm;
   song.speed = speed;
   song.samples = samples;
