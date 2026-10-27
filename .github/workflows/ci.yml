@@ -1,0 +1,49 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches-ignore: [main]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm test
+      - run: npm run build
+
+  browsers:
+    name: Browser smoke test (${{ matrix.browser }})
+    runs-on: ubuntu-latest
+    # Playwright's image has the browsers and their system libraries, so no step waits on
+    # apt mirrors or the browser CDN. Keep its tag at the playwright version in package.json.
+    # The runner's user (1001) owns the workspace; Firefox also refuses to run as root.
+    container:
+      image: mcr.microsoft.com/playwright:v1.63.0-noble
+      options: --user 1001 --ipc=host
+    # A hung browser must fail the run, not hold it for hours.
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        browser: [chromium, firefox, webkit]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+      - run: npm run smoke -- smoke-screenshots --${{ matrix.browser }}
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: smoke-screenshots-${{ matrix.browser }}
+          path: smoke-screenshots/
